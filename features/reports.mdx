@@ -1,0 +1,187 @@
+---
+title: "Reports"
+description: "Gain financial clarity with revenue dashboards, profit & loss statements, tax liability reports, invoice aging, and automated scheduled report delivery."
+---
+
+<CardGroup cols={2}>
+  <Card title="Revenue dashboard" icon="chart-line">
+    A live chart of payments received over time, with month-over-month comparison and upcoming due invoices.
+  </Card>
+  <Card title="Profit & loss" icon="scale-balanced">
+    Revenue, expenses, credits, and discounts by month with a calculated net income figure.
+  </Card>
+  <Card title="Tax liability" icon="percent">
+    Total tax collected per tax rate across all invoices, with cash-basis or accrual-basis options.
+  </Card>
+  <Card title="Invoice aging" icon="hourglass-half">
+    Outstanding invoices bucketed into current, 1–30 days, 31–60 days, 61–90 days, and 90+ days overdue.
+  </Card>
+  <Card title="Year-end export pack" icon="file-zipper">
+    Download a complete financial package — P&L, expense ledger, payment ledger, and tax liability — as CSV, PDF, or a ZIP bundle for your accountant.
+  </Card>
+  <Card title="Scheduled reports" icon="calendar">
+    Automatically email any report type to a list of recipients on a weekly, monthly, or quarterly schedule.
+  </Card>
+</CardGroup>
+
+## Revenue dashboard
+
+The main **Reports** page shows a revenue overview for your organization:
+
+- A bar or line chart of **payments received by month**, rendered with Recharts
+- **This month vs. last month** cash flow comparison
+- **Upcoming due invoices** (within the next 7 days) with client names and amounts
+- **Overdue invoices** with the days past due
+
+Use the date range pickers to narrow any chart to a specific period.
+
+## Available reports
+
+<AccordionGroup>
+  <Accordion title="Profit & loss">
+    Found at **Reports → Profit & loss**, this report computes revenue, expenses, and net income broken down by calendar month.
+
+    **What is included:**
+    - **Revenue** — all payments received within the date range
+    - **Expenses** — all expense records created within the date range
+    - **Credits** — credit note applications deducted from revenue
+    - **Discounts given** — total invoice-level discounts across non-draft invoices
+    - **Net income** — revenue minus expenses minus credits
+
+    Each figure is shown per-month and as a total for the selected period.
+  </Accordion>
+  <Accordion title="Invoice aging">
+    Found at **Reports → Aging**, this report shows all outstanding invoices bucketed by how far past due they are:
+
+    | Bucket | Range |
+    |---|---|
+    | Current | Not yet overdue |
+    | 1–30 days | 1–30 days past due |
+    | 31–60 days | 31–60 days past due |
+    | 61–90 days | 61–90 days past due |
+    | 90+ days | More than 90 days past due |
+
+    Statuses included: `SENT`, `PARTIALLY_PAID`, `OVERDUE`.
+  </Accordion>
+  <Accordion title="Unpaid invoices">
+    Found at **Reports → Unpaid**, this report lists all invoices that have been sent but not yet fully paid. Filter by date range to focus on a specific period. Invoices are sorted by due date ascending to prioritize the oldest outstanding amounts.
+  </Accordion>
+  <Accordion title="Expense breakdown">
+    Found at **Reports → Expenses**, this report lists all expense records with their category, supplier, and project. Filter by category or date range. Useful for reviewing discretionary spending and preparing for year-end filings.
+  </Accordion>
+  <Accordion title="Tax liability">
+    Found at **Reports → Tax liability**, this report summarizes the total tax collected across all invoices, grouped by tax rate.
+
+    **Basis options:**
+    - **Accrual** — tax is recognized on the invoice date, regardless of whether it has been paid
+    - **Cash** — tax is recognized only when payment is received; if an invoice is partially paid, tax is prorated proportionally
+
+    The report shows a summary table (tax name, rate, total collected, invoice count) and a detail table with individual invoice breakdowns.
+  </Accordion>
+  <Accordion title="Time tracking">
+    Found at **Reports → Time**, this report summarizes billable hours and amounts by project. For each project it shows total minutes logged and the calculated billable amount based on the project rate.
+  </Accordion>
+  <Accordion title="Payments by gateway">
+    Found at **Reports → Payments**, this report breaks down all recorded payments by payment method (Stripe, PayPal, bank transfer, cash, check, money order). For each method it shows the transaction count, total collected, and total gateway fees.
+  </Accordion>
+</AccordionGroup>
+
+## Year-end export pack
+
+The **Year-end export** (at **Reports → Year-end**) bundles the key financial reports your accountant needs into downloadable files:
+
+| Report | Description |
+|---|---|
+| Profit & loss | Revenue, expenses, and net income for the selected year |
+| Expense ledger | Detailed listing of all expenses with category, supplier, and dates |
+| Payment ledger | All payments received with invoice references and payment methods |
+| Tax liability | Tax collected per rate, on an accrual basis |
+
+Each report is available as:
+- **CSV** — for import into spreadsheet or accounting software
+- **PDF** — for archiving or sending to an accountant
+- **ZIP bundle** — all four reports in both formats in a single download
+
+## Scheduled reports
+
+Automate report delivery by setting up scheduled reports under **Reports → Scheduled**:
+
+<Steps>
+  <Step title="Create a scheduled report">
+    Click **New scheduled report** and choose:
+    - **Report type** — Profit & loss, Aging, Unpaid, Expenses, or Tax liability
+    - **Frequency** — Weekly, Monthly, or Quarterly
+    - **Day** — Day of the week (for weekly) or day of the month (for monthly/quarterly; 1–28)
+    - **Recipients** — one or more email addresses to receive the report
+  </Step>
+  <Step title="Enable and save">
+    Toggle the schedule to **Enabled** and save. A background job will send the report automatically on the configured day and frequency.
+  </Step>
+  <Step title="Manage schedules">
+    Disable or delete any schedule at any time. The `lastSentAt` field shows when the most recent delivery occurred.
+  </Step>
+</Steps>
+
+## Reliable payer badge
+
+Clients who consistently pay on time earn a **Reliable payer** badge, shown as a visual indicator on the client record and in the invoice list.
+
+A client is considered a reliable payer when their on-time payment rate meets or exceeds the configured threshold (default: **80%**).
+
+Configure the threshold under **Settings → Organization → Smart reminders**.
+
+## Smart payment nudges
+
+Sending unnecessary pre-due reminders to clients who always pay on time can feel presumptuous. Smart reminders address this by automatically skipping pre-due reminder steps for reliable payers.
+
+<Steps>
+  <Step title="Enable smart reminders">
+    Go to **Settings → Organization** and turn on **Smart payment reminders**.
+  </Step>
+  <Step title="Set the threshold">
+    Set the **Reliable payer threshold** percentage (default 80%). Clients at or above this on-time rate are treated as reliable.
+  </Step>
+  <Step title="How it works">
+    When the reminder background job evaluates whether to send a pre-due reminder (a step with a negative `daysRelativeToDue`), it checks whether the client qualifies as a reliable payer. If they do, the pre-due step is skipped. Post-due reminders still send as normal for all clients.
+  </Step>
+</Steps>
+
+<Tip>
+Smart reminders apply only to pre-due steps (negative `daysRelativeToDue` values). Overdue follow-ups always send regardless of payer status.
+</Tip>
+
+## Audit log
+
+Every create, update, delete, and status change in your organization is recorded in the audit log at **Settings → Audit log**.
+
+| Action | When it is recorded |
+|---|---|
+| `CREATED` | A record is first saved |
+| `UPDATED` | Fields are changed on an existing record |
+| `DELETED` | A record is permanently removed |
+| `STATUS_CHANGED` | The status field of a record changes |
+| `PAYMENT_RECEIVED` | A payment is recorded against an invoice |
+| `SENT` | An invoice or estimate is delivered |
+| `VIEWED` | An invoice is opened in the client portal |
+
+Each entry stores the entity type and ID, a human-readable label, the user who performed the action, and a diff of changed fields.
+
+## Notification center
+
+In-app notifications surface important events in real time. The notification bell in the dashboard header shows unread items for:
+
+| Notification | Triggered by |
+|---|---|
+| `INVOICE_SENT` | An invoice is dispatched to a client |
+| `INVOICE_VIEWED` | A client opens an invoice in the portal |
+| `INVOICE_PAID` | A full or final payment is recorded |
+| `INVOICE_OVERDUE` | An invoice passes its due date unpaid |
+| `INVOICE_COMMENT` | A client posts a comment on an invoice |
+| `ESTIMATE_ACCEPTED` | A client accepts or signs a proposal |
+| `ESTIMATE_REJECTED` | A client declines an estimate |
+| `RECURRING_INVOICE_GENERATED` | A recurring invoice schedule creates a new invoice |
+| `RECURRING_EXPENSE_GENERATED` | A recurring expense schedule creates a new expense |
+| `TICKET_CREATED` | A new support ticket is opened |
+| `TICKET_REPLIED` | A reply is added to an existing ticket |
+
+Notifications are scoped to your organization and delivered to all admin users.

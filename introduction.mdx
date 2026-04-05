@@ -1,0 +1,92 @@
+---
+title: 'Introduction'
+description: 'LWD Invoices is a modern, open-source invoicing and business management application built for freelancers, consultants, and small businesses.'
+keywords: ['invoicing', 'self-hosted', 'open source', 'freelancers', 'small business']
+---
+
+LWD Invoices (LaPlante Web Development Invoices) is a full-stack, self-hostable invoicing SaaS rebuilt from a legacy PHP application as a modern Next.js application with multi-tenant organization support. It gives you professional invoicing, time tracking, client management, and business operations — all in one place, on your own infrastructure.
+
+## Who it's for
+
+LWD Invoices is designed for:
+
+- **Freelancers** who need to bill clients, track hours, and get paid online without paying monthly SaaS fees.
+- **Consultants** managing multiple clients, projects, and recurring engagements.
+- **Small businesses** that need multi-user organization support, expense tracking, and financial reporting.
+
+If you want full control over your data and the ability to customize the application, self-hosting LWD Invoices is the right choice.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice-dollar" href="/features/invoicing">
+    Create invoices with line items, discounts, and compound tax support. Generate PDFs, send via email, track partial payments, issue credit notes, and set up recurring invoices.
+  </Card>
+  <Card title="Projects and time tracking" icon="clock" href="/features/projects-time-tracking">
+    Manage projects with milestones and tasks. Log time entries with configurable rounding, run built-in timers, and bill tracked hours directly to invoices.
+  </Card>
+  <Card title="Client portal" icon="globe" href="/features/client-portal">
+    Share a token-based portal so clients can view invoices, approve estimates, and pay online via Stripe or PayPal — no account required.
+  </Card>
+  <Card title="Expenses" icon="receipt" href="/features/expenses">
+    Track categorized expenses with suppliers and file attachments. Export expense data for year-end accounting.
+  </Card>
+  <Card title="Reports" icon="chart-bar" href="/features/reports">
+    Revenue, payment, and unpaid invoice reports. Generate year-end export packs with P&L, expense ledger, tax liability, and payment ledger in CSV, PDF, and ZIP formats.
+  </Card>
+  <Card title="Payment integrations" icon="credit-card" href="/integrations/payments">
+    Accept online payments via Stripe and PayPal. Gateway credentials are encrypted per-organization. Smart payment nudges automatically identify reliable payers.
+  </Card>
+  <Card title="Email delivery" icon="envelope" href="/integrations/email">
+    Send invoices, payment receipts, and automated reminders via Resend with React Email templates.
+  </Card>
+  <Card title="Background jobs" icon="gear" href="/integrations/background-jobs">
+    10+ automated processes via Inngest: recurring invoices, payment reminders, overdue notifications, late fees, and scheduled reports.
+  </Card>
+</CardGroup>
+
+## Platform capabilities
+
+Beyond the core features, LWD Invoices includes several platform-level capabilities:
+
+- **Multi-tenancy** — Full organization isolation via Supabase Auth. Each user account is tied to one organization with all data strictly scoped.
+- **REST API v1** — Bearer-token authenticated API for external integrations covering clients, invoices, and projects.
+- **Global search** — Command palette (Cmd+K / Ctrl+K) for quick navigation across invoices, clients, projects, expenses, and tickets.
+- **Audit log** — Organization-scoped activity log for all mutations.
+- **File attachments** — File uploads via Supabase Storage for invoices, expenses, and proposals.
+- **Support tickets** — Internal ticket system with threaded discussions.
+- **Mobile responsive** — Optimized layouts across all pages.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Auth | Supabase Auth (multi-tenant orgs) |
+| API | tRPC v11 |
+| Database | PostgreSQL + Prisma 7 |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Email | Resend + React Email |
+| PDF | @react-pdf/renderer |
+| Payments | Stripe, PayPal |
+| Background jobs | Inngest |
+| File storage | Supabase Storage |
+| Validation | Zod 4 |
+| Testing | Vitest |
+| Deployment | Netlify |
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Clone the repo, configure environment variables, run migrations, and have a local instance running in minutes.
+  </Card>
+  <Card title="Self-hosting" icon="server" href="/self-hosting">
+    Complete production deployment guide covering database setup, auth, storage, email, payments, background jobs, and deployment platforms.
+  </Card>
+</CardGroup>
+
+<Note>
+  LWD Invoices is open source and licensed under the MIT License. You are free to use, modify, and distribute it for personal or commercial projects.
+</Note>

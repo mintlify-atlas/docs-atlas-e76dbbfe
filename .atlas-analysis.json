@@ -1,0 +1,99 @@
+{
+  "projectType": "saas",
+  "projectName": "LWD Invoices",
+  "projectDescription": "A full-stack, self-hostable invoicing and business management SaaS for freelancers and small businesses, built with Next.js, tRPC, and Prisma.",
+  "theme": "almond",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "self-hosting"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/invoicing",
+              "features/projects-time-tracking",
+              "features/client-portal",
+              "features/expenses",
+              "features/reports"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/payments",
+              "integrations/email",
+              "integrations/background-jobs"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/environment-variables",
+              "configuration/organization-settings",
+              "configuration/multi-tenancy"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/guidelines",
+              "contributing/architecture"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API v1",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/authentication",
+              "api-reference/clients",
+              "api-reference/invoices",
+              "api-reference/projects"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-tenant invoicing with PDF generation and email delivery via Resend",
+    "Client portal with token-based access for invoice viewing and online payment",
+    "Stripe and PayPal payment gateway integration with webhook-based status updates",
+    "Project management with time tracking, milestones, tasks, and built-in timers",
+    "Recurring invoices and expenses via Inngest background jobs",
+    "Expense tracking with categorization, suppliers, and file attachments",
+    "Financial reports: P&L, aging, unpaid invoices, tax liability, and year-end export",
+    "AI-powered features via Anthropic SDK (e.g., expense OCR confidence)",
+    "REST API v1 with Bearer-token auth for external integrations",
+    "Audit log, notifications, global search (Cmd+K), and multi-factor authentication"
+  ],
+  "publicApiSurface": [
+    "GET /api/v1/clients — List clients (paginated)",
+    "GET /api/v1/clients/:id — Get a single client",
+    "GET /api/v1/invoices — List invoices (paginated, filterable by status)",
+    "GET /api/v1/invoices/:id — Get a single invoice",
+    "GET /api/v1/projects — List projects (paginated)",
+    "GET /api/v1/projects/:id — Get a single project",
+    "POST /api/webhooks/stripe — Stripe payment webhook",
+    "POST /api/webhooks/paypal — PayPal payment webhook",
+    "POST /api/webhooks/supabase — Supabase auth webhook",
+    "POST /api/inngest — Inngest background job handler",
+    "GET /api/portal/* — Token-based client portal API (no auth required)"
+  ]
+}

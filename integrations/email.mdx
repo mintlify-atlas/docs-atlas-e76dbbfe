@@ -1,0 +1,157 @@
+---
+title: "Email delivery"
+description: "LWD Invoices uses Resend for all transactional email. Learn how to configure Resend, understand what emails are sent, and set up automations and reminder sequences."
+keywords: ["resend", "email", "transactional", "react email", "automations", "reminders", "scheduled reports"]
+---
+
+All transactional email in LWD Invoices is delivered through [Resend](https://resend.com). Email templates are built with [React Email](https://react.email), giving you structured, consistent HTML emails across all message types.
+
+## Required environment variables
+
+```bash .env
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="invoices@yourdomain.com"
+```
+
+`RESEND_FROM_EMAIL` must use a domain you have verified in your Resend account. Emails sent from an unverified domain will be rejected.
+
+## Resend setup
+
+<Steps>
+  <Step title="Create a Resend account">
+    Sign up at [resend.com](https://resend.com). The free tier includes up to 3,000 emails per month.
+  </Step>
+  <Step title="Add and verify your sending domain">
+    In the Resend dashboard, go to **Domains → Add domain**. Add the domain you plan to send from (e.g., `yourdomain.com`) and follow the DNS verification instructions.
+
+    <Note>
+      Domain verification is required before Resend will deliver emails to recipients outside your own inbox. Until the domain is verified, emails may be blocked or marked as spam. Complete this step before sending any invoices.
+    </Note>
+  </Step>
+  <Step title="Create an API key">
+    In the Resend dashboard, go to **API Keys → Create API key**. Copy the key and set it as `RESEND_API_KEY` in your environment.
+  </Step>
+  <Step title="Set your from address">
+    Set `RESEND_FROM_EMAIL` to the address you want to appear as the sender, e.g. `invoices@yourdomain.com`. This address must belong to your verified domain.
+  </Step>
+</Steps>
+
+## BCC to owner
+
+When **BCC owner** is enabled in **Settings → Notifications** (`emailBccOwner`), a copy of every outbound email is sent to the organization owner's email address. This is useful for keeping a personal record of all client correspondence without needing to check Resend's logs.
+
+## Email templates
+
+The following templates are included. All templates use React Email and are rendered to HTML at send time.
+
+| Template | When it is sent |
+|---|---|
+| `InvoiceSentEmail` | When an invoice is emailed to a client |
+| `PaymentReceiptEmail` | When a payment is received (via Stripe, PayPal, or manually recorded) |
+| `PaymentReminderEmail` | On scheduled days before the invoice due date |
+| `OverdueEmail` | When an invoice transitions to `OVERDUE` status |
+| `InvoiceViewedEmail` | When a client opens an invoice in the portal (notification to owner) |
+| `TeamInviteEmail` | When a new team member is invited to the organization |
+| `PasswordResetEmail` | Password reset flow |
+| `ProposalSignedEmail` | When a client e-signs a proposal/estimate |
+| `InvoiceCommentEmail` | When a comment is added to an invoice |
+
+Reminder and overdue emails include a PDF attachment of the invoice and a direct link to the client portal.
+
+## Email automations
+
+Email automations let you define trigger-based emails that fire automatically when specific invoice events occur. Configure them in **Settings → Automations**.
+
+Each automation has:
+
+- **Trigger** — one of `PAYMENT_RECEIVED`, `INVOICE_SENT`, `INVOICE_VIEWED`, or `INVOICE_OVERDUE`
+- **Delay in days** — how many days after the trigger event to wait before sending (0 = send immediately)
+- **Subject template** — supports variable interpolation
+- **Body template** — supports variable interpolation
+
+### Template variables
+
+Use the following placeholders in your subject and body templates:
+
+| Variable | Description |
+|---|---|
+| `{{clientName}}` | Client's full name |
+| `{{invoiceNumber}}` | Invoice number (e.g., `INV-0042`) |
+| `{{amountDue}}` | Invoice total |
+| `{{dueDate}}` | Invoice due date |
+| `{{orgName}}` | Organization name |
+| `{{amountPaid}}` | Amount of the most recent payment |
+| `{{paymentDate}}` | Date of the most recent payment |
+| `{{portalToken}}` | Client portal token (used to construct the portal link) |
+
+### Idempotency
+
+The `EmailAutomationLog` table tracks which automations have already been sent for each invoice. An automation is never sent twice to the same invoice. If you edit an automation after it has already fired, the log prevents it from firing again for invoices that already received it.
+
+### Immediate vs. delayed automations
+
+- **Delay = 0**: The automation fires in real time when the triggering event occurs (e.g., immediately after a payment is received).
+- **Delay > 0**: The automation fires the next time the daily automation job runs, once enough days have passed since the trigger date.
+
+See [Background jobs](/integrations/background-jobs) for how the daily automation job is scheduled.
+
+## Reminder sequences
+
+Reminder sequences give you fine-grained control over the timing and content of payment reminder emails. Configure them in **Settings → Reminder Sequences**.
+
+A sequence consists of one or more **steps**, each defined by:
+
+- **`daysRelativeToDue`** — when to send relative to the invoice due date. Negative values are before the due date, positive values are after, and `0` fires on the due date itself.
+- **Subject** and **body** templates (same variable syntax as automations above)
+
+### Example sequence
+
+| Step | `daysRelativeToDue` | Meaning |
+|---|---|---|
+| 1 | `-7` | 7 days before due date |
+| 2 | `-1` | 1 day before due date |
+| 3 | `0` | On the due date |
+| 4 | `7` | 7 days overdue |
+
+### Sequence assignment
+
+- One sequence can be marked as the **default** for the organization and applies automatically to all invoices.
+- Individual invoices can override the default with a specific sequence via the invoice settings.
+
+Each step is logged in `ReminderLog` once sent, preventing duplicate sends even if the job runs multiple times.
+
+### Smart reminders integration
+
+If **Smart Reminders** is enabled, steps with a negative `daysRelativeToDue` (before due date) are automatically skipped for clients who meet the on-time payment threshold. The step is still logged so it is not attempted again. See [Payment gateways](/integrations/payments) for details on the reliable payer threshold.
+
+## Scheduled report delivery
+
+Financial reports can be emailed on a recurring schedule. Configure scheduled reports in **Settings → Reports → Scheduled Reports**.
+
+Available report types: Profit & Loss, Invoice Aging, Unpaid Invoices, Expenses, Tax Liability.
+
+Each scheduled report defines:
+
+- **Report type**
+- **Frequency** — weekly, monthly, or quarterly
+- **Day** — day of the week (for weekly) or day of the month (for monthly/quarterly)
+- **Recipients** — one or more email addresses
+
+The report is generated and emailed by the [scheduled reports background job](/integrations/background-jobs) when it runs at 7:00 AM UTC daily.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Background jobs" icon="clock" href="/integrations/background-jobs">
+    How reminder sequences, automations, and scheduled reports are processed on schedule.
+  </Card>
+  <Card title="Payment gateways" icon="credit-card" href="/integrations/payments">
+    Payment receipt emails and the smart reminders threshold.
+  </Card>
+  <Card title="Organization settings" icon="gear" href="/configuration/organization-settings">
+    Where to configure BCC, smart reminders, and reminder days.
+  </Card>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Invoice workflow, including when emails are triggered.
+  </Card>
+</CardGroup>

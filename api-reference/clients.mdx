@@ -1,0 +1,247 @@
+---
+title: "Clients"
+description: "List and retrieve clients in your organization via the REST API v1."
+---
+
+## List clients
+
+Returns a paginated list of non-archived clients in your organization, ordered alphabetically by name.
+
+```
+GET /api/v1/clients
+```
+
+### Query parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number to retrieve. Must be a positive integer. Defaults to `1` if missing or invalid.
+</ParamField>
+
+<ParamField query="per_page" type="number" default="20">
+  Number of clients per page. Minimum `1`, maximum `100`. Defaults to `20` if missing or invalid.
+</ParamField>
+
+### Example request
+
+```bash
+curl https://invoices.example.com/api/v1/clients?page=1&per_page=20 \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": [
+    {
+      "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+      "name": "Acme Corp",
+      "email": "billing@acme.com",
+      "phone": "+1 555-100-2000",
+      "address": "123 Main Street",
+      "city": "Springfield",
+      "state": "IL",
+      "zip": "62701",
+      "country": "US",
+      "taxId": "12-3456789",
+      "notes": null,
+      "isArchived": false,
+      "createdAt": "2024-01-15T09:30:00.000Z",
+      "updatedAt": "2024-06-01T14:22:10.000Z",
+      "organizationId": "org_abc123"
+    }
+  ],
+  "page": 1
+}
+```
+
+### Response fields
+
+<ResponseField name="data" type="object[]">
+  Array of client objects.
+
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique client identifier (cuid).
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Client's display name. Used for alphabetical ordering.
+    </ResponseField>
+    <ResponseField name="email" type="string | null">
+      Client's email address.
+    </ResponseField>
+    <ResponseField name="phone" type="string | null">
+      Client's phone number.
+    </ResponseField>
+    <ResponseField name="address" type="string | null">
+      Street address.
+    </ResponseField>
+    <ResponseField name="city" type="string | null">
+      City.
+    </ResponseField>
+    <ResponseField name="state" type="string | null">
+      State or province.
+    </ResponseField>
+    <ResponseField name="zip" type="string | null">
+      Postal or ZIP code.
+    </ResponseField>
+    <ResponseField name="country" type="string | null">
+      Country.
+    </ResponseField>
+    <ResponseField name="taxId" type="string | null">
+      Tax identification number (e.g., VAT or EIN).
+    </ResponseField>
+    <ResponseField name="notes" type="string | null">
+      Internal notes about the client.
+    </ResponseField>
+    <ResponseField name="isArchived" type="boolean">
+      Whether the client is archived. The list endpoint always returns `false` here — archived clients are excluded.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 datetime when the client was created.
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 datetime when the client was last updated.
+    </ResponseField>
+    <ResponseField name="organizationId" type="string">
+      ID of the organization this client belongs to. Matches the authenticated user's organization.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  The current page number returned.
+</ResponseField>
+
+---
+
+## Get a client
+
+Returns a single client by ID, including their 10 most recent invoices.
+
+```
+GET /api/v1/clients/{id}
+```
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  The client's unique ID (cuid).
+</ParamField>
+
+### Example request
+
+```bash
+curl https://invoices.example.com/api/v1/clients/clx1a2b3c4d5e6f7g8h9i0j1 \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": {
+    "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+    "name": "Acme Corp",
+    "email": "billing@acme.com",
+    "phone": "+1 555-100-2000",
+    "address": "123 Main Street",
+    "city": "Springfield",
+    "state": "IL",
+    "zip": "62701",
+    "country": "US",
+    "taxId": "12-3456789",
+    "notes": null,
+    "isArchived": false,
+    "createdAt": "2024-01-15T09:30:00.000Z",
+    "updatedAt": "2024-06-01T14:22:10.000Z",
+    "organizationId": "org_abc123",
+    "invoices": [
+      {
+        "id": "inv_xyz789",
+        "number": "INV-0042",
+        "status": "PAID",
+        "total": "1250.0000000000",
+        "createdAt": "2024-05-20T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Response fields
+
+<ResponseField name="data" type="object">
+  The client object. Contains all fields from the list response, plus:
+
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique client identifier (cuid).
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Client's display name.
+    </ResponseField>
+    <ResponseField name="email" type="string | null">
+      Client's email address.
+    </ResponseField>
+    <ResponseField name="phone" type="string | null">
+      Client's phone number.
+    </ResponseField>
+    <ResponseField name="address" type="string | null">
+      Street address.
+    </ResponseField>
+    <ResponseField name="city" type="string | null">
+      City.
+    </ResponseField>
+    <ResponseField name="state" type="string | null">
+      State or province.
+    </ResponseField>
+    <ResponseField name="zip" type="string | null">
+      Postal or ZIP code.
+    </ResponseField>
+    <ResponseField name="country" type="string | null">
+      Country.
+    </ResponseField>
+    <ResponseField name="taxId" type="string | null">
+      Tax identification number.
+    </ResponseField>
+    <ResponseField name="notes" type="string | null">
+      Internal notes about the client.
+    </ResponseField>
+    <ResponseField name="isArchived" type="boolean">
+      Whether the client is archived.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 datetime when the client was created.
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 datetime when the client was last updated.
+    </ResponseField>
+    <ResponseField name="organizationId" type="string">
+      ID of the organization this client belongs to.
+    </ResponseField>
+    <ResponseField name="invoices" type="object[]">
+      The 10 most recent invoices for this client, ordered newest first.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Invoice ID.
+        </ResponseField>
+        <ResponseField name="number" type="string">
+          Human-readable invoice number (e.g., `INV-0042`).
+        </ResponseField>
+        <ResponseField name="status" type="string">
+          Invoice status. One of `DRAFT`, `SENT`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`, `ACCEPTED`, `REJECTED`.
+        </ResponseField>
+        <ResponseField name="total" type="string">
+          Invoice total as a decimal string.
+        </ResponseField>
+        <ResponseField name="createdAt" type="string">
+          ISO 8601 datetime when the invoice was created.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Returns `404` with `{ "error": "Not found" }` if the client does not exist or belongs to a different organization.

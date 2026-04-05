@@ -1,0 +1,391 @@
+---
+title: "Invoices"
+description: "List and retrieve invoices in your organization via the REST API v1. Supports filtering by status."
+---
+
+<Note>
+  Decimal monetary fields (`subtotal`, `discountTotal`, `taxTotal`, `total`, and line item amounts) are returned as strings in JSON to preserve full precision. Parse them with a decimal library rather than a native float to avoid rounding errors.
+</Note>
+
+## List invoices
+
+Returns a paginated list of non-archived invoices in your organization, ordered newest first.
+
+```
+GET /api/v1/invoices
+```
+
+### Query parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number to retrieve. Must be a positive integer. Defaults to `1` if missing or invalid.
+</ParamField>
+
+<ParamField query="per_page" type="number" default="20">
+  Number of invoices per page. Minimum `1`, maximum `100`. Defaults to `20` if missing or invalid.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter invoices by status. Must be one of: `DRAFT`, `SENT`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`, `ACCEPTED`, `REJECTED`. Returns a `400` error if the value is not a valid status.
+</ParamField>
+
+### Example requests
+
+```bash
+# All non-archived invoices, newest first
+curl https://invoices.example.com/api/v1/invoices \
+  --header "Authorization: Bearer <your-access-token>"
+
+# Only unpaid invoices
+curl "https://invoices.example.com/api/v1/invoices?status=SENT&per_page=50" \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": [
+    {
+      "id": "clx9z8y7x6w5v4u3t2s1r0q",
+      "number": "INV-0042",
+      "type": "DETAILED",
+      "status": "SENT",
+      "date": "2024-05-01T00:00:00.000Z",
+      "dueDate": "2024-05-31T00:00:00.000Z",
+      "lastSent": "2024-05-02T08:14:00.000Z",
+      "lastViewed": null,
+      "subtotal": "1000.0000000000",
+      "discountTotal": "0.0000000000",
+      "taxTotal": "130.0000000000",
+      "total": "1130.0000000000",
+      "currencyId": "clxcur123",
+      "currency": {
+        "id": "clxcur123",
+        "code": "USD",
+        "symbol": "$",
+        "name": "US Dollar",
+        "symbolPosition": "before",
+        "exchangeRate": "1.000000",
+        "isDefault": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "organizationId": "org_abc123"
+      },
+      "client": {
+        "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+        "name": "Acme Corp",
+        "email": "billing@acme.com"
+      },
+      "notes": "Payment due within 30 days.",
+      "isArchived": false,
+      "createdAt": "2024-05-01T09:00:00.000Z",
+      "updatedAt": "2024-05-02T08:14:00.000Z"
+    }
+  ],
+  "page": 1
+}
+```
+
+### Response fields
+
+<ResponseField name="data" type="object[]">
+  Array of invoice objects.
+
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique invoice identifier (cuid).
+    </ResponseField>
+    <ResponseField name="number" type="string">
+      Human-readable invoice number (e.g., `INV-0042`). Unique within the organization.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Invoice type. One of `SIMPLE`, `DETAILED`, `ESTIMATE`, `CREDIT_NOTE`.
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current invoice status. One of `DRAFT`, `SENT`, `PARTIALLY_PAID`, `PAID`, `OVERDUE`, `ACCEPTED`, `REJECTED`.
+    </ResponseField>
+    <ResponseField name="date" type="string">
+      ISO 8601 invoice date.
+    </ResponseField>
+    <ResponseField name="dueDate" type="string | null">
+      ISO 8601 payment due date.
+    </ResponseField>
+    <ResponseField name="lastSent" type="string | null">
+      ISO 8601 datetime the invoice was last emailed to the client.
+    </ResponseField>
+    <ResponseField name="lastViewed" type="string | null">
+      ISO 8601 datetime the client last viewed the invoice via the portal.
+    </ResponseField>
+    <ResponseField name="subtotal" type="string">
+      Sum of all line item amounts before discounts and taxes, as a decimal string.
+    </ResponseField>
+    <ResponseField name="discountTotal" type="string">
+      Total discount amount applied, as a decimal string.
+    </ResponseField>
+    <ResponseField name="taxTotal" type="string">
+      Total tax amount, as a decimal string.
+    </ResponseField>
+    <ResponseField name="total" type="string">
+      Final invoice total (subtotal − discounts + taxes), as a decimal string.
+    </ResponseField>
+    <ResponseField name="currencyId" type="string">
+      ID of the currency used for this invoice.
+    </ResponseField>
+    <ResponseField name="currency" type="object">
+      The currency object.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Currency ID.
+        </ResponseField>
+        <ResponseField name="code" type="string">
+          ISO 4217 currency code (e.g., `USD`, `EUR`).
+        </ResponseField>
+        <ResponseField name="symbol" type="string">
+          Currency symbol (e.g., `$`, `€`).
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Full currency name (e.g., `US Dollar`).
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="client" type="object">
+      Summary of the client this invoice belongs to.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Client ID.
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Client name.
+        </ResponseField>
+        <ResponseField name="email" type="string | null">
+          Client email address.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="notes" type="string | null">
+      Free-text notes displayed on the invoice.
+    </ResponseField>
+    <ResponseField name="isArchived" type="boolean">
+      Whether the invoice is archived. Always `false` in list results.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 datetime when the invoice was created.
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 datetime when the invoice was last modified.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  The current page number returned.
+</ResponseField>
+
+---
+
+## Get an invoice
+
+Returns a single invoice by ID, including full line items (with taxes), payments, and partial payments.
+
+```
+GET /api/v1/invoices/{id}
+```
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  The invoice's unique ID (cuid).
+</ParamField>
+
+### Example request
+
+```bash
+curl https://invoices.example.com/api/v1/invoices/clx9z8y7x6w5v4u3t2s1r0q \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": {
+    "id": "clx9z8y7x6w5v4u3t2s1r0q",
+    "number": "INV-0042",
+    "type": "DETAILED",
+    "status": "PAID",
+    "date": "2024-05-01T00:00:00.000Z",
+    "dueDate": "2024-05-31T00:00:00.000Z",
+    "lastSent": "2024-05-02T08:14:00.000Z",
+    "lastViewed": "2024-05-03T12:00:00.000Z",
+    "subtotal": "1000.0000000000",
+    "discountTotal": "0.0000000000",
+    "taxTotal": "130.0000000000",
+    "total": "1130.0000000000",
+    "currencyId": "clxcur123",
+    "currency": {
+      "id": "clxcur123",
+      "code": "USD",
+      "symbol": "$",
+      "name": "US Dollar"
+    },
+    "client": {
+      "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+      "name": "Acme Corp",
+      "email": "billing@acme.com"
+    },
+    "notes": "Payment due within 30 days.",
+    "isArchived": false,
+    "createdAt": "2024-05-01T09:00:00.000Z",
+    "updatedAt": "2024-05-31T16:45:00.000Z",
+    "lines": [
+      {
+        "id": "line_abc",
+        "sort": 0,
+        "lineType": "STANDARD",
+        "name": "Web development",
+        "description": "Homepage redesign",
+        "qty": "10.0000",
+        "rate": "100.0000000000",
+        "subtotal": "1000.0000000000",
+        "taxTotal": "130.0000000000",
+        "total": "1130.0000000000",
+        "taxes": [
+          {
+            "id": "tax_line_1",
+            "taxAmount": "130.0000000000",
+            "tax": {
+              "id": "tax_1",
+              "name": "GST",
+              "rate": "13.0000"
+            }
+          }
+        ]
+      }
+    ],
+    "payments": [
+      {
+        "id": "pay_001",
+        "amount": "1130.0000000000",
+        "method": "STRIPE",
+        "paidAt": "2024-05-15T10:00:00.000Z"
+      }
+    ],
+    "partialPayments": []
+  }
+}
+```
+
+### Response fields
+
+The single invoice response includes all fields from the list response, plus:
+
+<ResponseField name="data" type="object">
+  The full invoice object.
+
+  <Expandable title="properties">
+    <ResponseField name="lines" type="object[]">
+      Line items on the invoice.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Line item ID.
+        </ResponseField>
+        <ResponseField name="sort" type="number">
+          Display order of the line item.
+        </ResponseField>
+        <ResponseField name="lineType" type="string">
+          Type of line. One of `STANDARD`, `TIME_ENTRY`, `FLAT_RATE`, `EXPENSE`, `PERCENTAGE_DISCOUNT`, `FIXED_DISCOUNT`, `PERIOD_DAY`, `PERIOD_WEEK`, `PERIOD_MONTH`, `PERIOD_YEAR`.
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Line item name.
+        </ResponseField>
+        <ResponseField name="description" type="string | null">
+          Optional description.
+        </ResponseField>
+        <ResponseField name="qty" type="string">
+          Quantity as a decimal string.
+        </ResponseField>
+        <ResponseField name="rate" type="string">
+          Unit rate as a decimal string.
+        </ResponseField>
+        <ResponseField name="subtotal" type="string">
+          Line subtotal (qty × rate) as a decimal string.
+        </ResponseField>
+        <ResponseField name="taxTotal" type="string">
+          Total tax for this line as a decimal string.
+        </ResponseField>
+        <ResponseField name="total" type="string">
+          Line total including tax as a decimal string.
+        </ResponseField>
+        <ResponseField name="taxes" type="object[]">
+          Tax amounts applied to this line.
+
+          <Expandable title="properties">
+            <ResponseField name="id" type="string">
+              Invoice line tax record ID.
+            </ResponseField>
+            <ResponseField name="taxAmount" type="string">
+              Tax amount as a decimal string.
+            </ResponseField>
+            <ResponseField name="tax" type="object">
+              The tax definition.
+
+              <Expandable title="properties">
+                <ResponseField name="id" type="string">
+                  Tax ID.
+                </ResponseField>
+                <ResponseField name="name" type="string">
+                  Tax name (e.g., `GST`, `VAT`).
+                </ResponseField>
+                <ResponseField name="rate" type="string">
+                  Tax rate as a decimal percentage string (e.g., `"13.0000"`).
+                </ResponseField>
+              </Expandable>
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="payments" type="object[]">
+      Completed payments recorded against this invoice.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Payment ID.
+        </ResponseField>
+        <ResponseField name="amount" type="string">
+          Amount paid as a decimal string.
+        </ResponseField>
+        <ResponseField name="method" type="string">
+          Payment method. One of `STRIPE`, `PAYPAL`, `BANK_TRANSFER`, `CASH`, `CHECK`, `MONEY_ORDER`.
+        </ResponseField>
+        <ResponseField name="paidAt" type="string">
+          ISO 8601 datetime the payment was recorded.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="partialPayments" type="object[]">
+      Partial payment schedules defined for this invoice (deposit milestones).
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Partial payment ID.
+        </ResponseField>
+        <ResponseField name="amount" type="string">
+          Amount due as a decimal string.
+        </ResponseField>
+        <ResponseField name="isPaid" type="boolean">
+          Whether this partial payment has been fulfilled.
+        </ResponseField>
+        <ResponseField name="dueDate" type="string | null">
+          ISO 8601 due date for this partial payment.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Returns `404` with `{ "error": "Not found" }` if the invoice does not exist or belongs to a different organization.

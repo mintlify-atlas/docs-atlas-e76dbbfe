@@ -1,0 +1,297 @@
+---
+title: "Projects"
+description: "List and retrieve projects in your organization via the REST API v1. Supports filtering by status."
+---
+
+<Note>
+  The `rate` field is returned as a string in JSON to preserve decimal precision. Parse it with a decimal library rather than a native float.
+</Note>
+
+## List projects
+
+Returns a paginated list of projects in your organization, ordered newest first. Unlike invoices and clients, archived projects are **not** automatically excluded — use the `status` filter to narrow results.
+
+```
+GET /api/v1/projects
+```
+
+### Query parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number to retrieve. Must be a positive integer. Defaults to `1` if missing or invalid.
+</ParamField>
+
+<ParamField query="per_page" type="number" default="20">
+  Number of projects per page. Minimum `1`, maximum `100`. Defaults to `20` if missing or invalid.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter projects by status. Must be one of: `ACTIVE`, `COMPLETED`, `ARCHIVED`. Returns a `400` error if the value is not a valid status.
+</ParamField>
+
+### Example requests
+
+```bash
+# All projects, newest first
+curl https://invoices.example.com/api/v1/projects \
+  --header "Authorization: Bearer <your-access-token>"
+
+# Only active projects
+curl "https://invoices.example.com/api/v1/projects?status=ACTIVE" \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": [
+    {
+      "id": "clxproj1a2b3c4d5e6f7g8h",
+      "name": "Website Redesign",
+      "description": "Full redesign of the company marketing site.",
+      "status": "ACTIVE",
+      "dueDate": "2024-09-30T00:00:00.000Z",
+      "rate": "120.0000000000",
+      "projectedHours": 80,
+      "isFlatRate": false,
+      "isViewable": true,
+      "isTimesheetViewable": false,
+      "currencyId": "clxcur123",
+      "currency": {
+        "id": "clxcur123",
+        "code": "USD",
+        "symbol": "$",
+        "name": "US Dollar",
+        "symbolPosition": "before",
+        "exchangeRate": "1.000000",
+        "isDefault": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "organizationId": "org_abc123"
+      },
+      "clientId": "clx1a2b3c4d5e6f7g8h9i0j1",
+      "client": {
+        "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+        "name": "Acme Corp"
+      },
+      "organizationId": "org_abc123",
+      "createdAt": "2024-03-10T08:00:00.000Z",
+      "updatedAt": "2024-07-15T12:30:00.000Z"
+    }
+  ],
+  "page": 1
+}
+```
+
+### Response fields
+
+<ResponseField name="data" type="object[]">
+  Array of project objects.
+
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique project identifier (cuid).
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Project name.
+    </ResponseField>
+    <ResponseField name="description" type="string | null">
+      Optional project description.
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current project status. One of `ACTIVE`, `COMPLETED`, `ARCHIVED`.
+    </ResponseField>
+    <ResponseField name="dueDate" type="string | null">
+      ISO 8601 datetime of the project's target completion date.
+    </ResponseField>
+    <ResponseField name="rate" type="string">
+      Hourly or flat rate as a decimal string, in the project's currency.
+    </ResponseField>
+    <ResponseField name="projectedHours" type="number">
+      Estimated total hours for the project.
+    </ResponseField>
+    <ResponseField name="isFlatRate" type="boolean">
+      Whether the project is billed at a flat rate rather than an hourly rate.
+    </ResponseField>
+    <ResponseField name="isViewable" type="boolean">
+      Whether the project is visible to the client via the client portal.
+    </ResponseField>
+    <ResponseField name="isTimesheetViewable" type="boolean">
+      Whether the project's timesheet is visible to the client via the client portal.
+    </ResponseField>
+    <ResponseField name="currencyId" type="string">
+      ID of the currency used for this project's rate.
+    </ResponseField>
+    <ResponseField name="currency" type="object">
+      The currency object.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Currency ID.
+        </ResponseField>
+        <ResponseField name="code" type="string">
+          ISO 4217 currency code (e.g., `USD`, `EUR`).
+        </ResponseField>
+        <ResponseField name="symbol" type="string">
+          Currency symbol (e.g., `$`, `€`).
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Full currency name (e.g., `US Dollar`).
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="clientId" type="string">
+      ID of the client this project belongs to.
+    </ResponseField>
+    <ResponseField name="client" type="object">
+      Summary of the client this project belongs to.
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Client ID.
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Client name.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="organizationId" type="string">
+      ID of the organization this project belongs to.
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 datetime when the project was created.
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 datetime when the project was last modified.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="page" type="number">
+  The current page number returned.
+</ResponseField>
+
+---
+
+## Get a project
+
+Returns a single project by ID, including the client summary and all project tasks ordered by creation date.
+
+```
+GET /api/v1/projects/{id}
+```
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  The project's unique ID (cuid).
+</ParamField>
+
+### Example request
+
+```bash
+curl https://invoices.example.com/api/v1/projects/clxproj1a2b3c4d5e6f7g8h \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+### Example response
+
+```json
+{
+  "data": {
+    "id": "clxproj1a2b3c4d5e6f7g8h",
+    "name": "Website Redesign",
+    "description": "Full redesign of the company marketing site.",
+    "status": "ACTIVE",
+    "dueDate": "2024-09-30T00:00:00.000Z",
+    "rate": "120.0000000000",
+    "projectedHours": 80,
+    "isFlatRate": false,
+    "isViewable": true,
+    "isTimesheetViewable": false,
+    "currencyId": "clxcur123",
+    "currency": {
+      "id": "clxcur123",
+      "code": "USD",
+      "symbol": "$",
+      "name": "US Dollar"
+    },
+    "clientId": "clx1a2b3c4d5e6f7g8h9i0j1",
+    "client": {
+      "id": "clx1a2b3c4d5e6f7g8h9i0j1",
+      "name": "Acme Corp"
+    },
+    "organizationId": "org_abc123",
+    "createdAt": "2024-03-10T08:00:00.000Z",
+    "updatedAt": "2024-07-15T12:30:00.000Z",
+    "tasks": [
+      {
+        "id": "task_abc",
+        "name": "Design mockups",
+        "notes": null,
+        "sortOrder": 0,
+        "isCompleted": false,
+        "projectedHours": 20,
+        "rate": "120.0000000000",
+        "isFlatRate": false,
+        "dueDate": null,
+        "createdAt": "2024-03-11T09:00:00.000Z",
+        "updatedAt": "2024-04-01T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Response fields
+
+The single project response includes all fields from the list response, plus:
+
+<ResponseField name="data" type="object">
+  The full project object.
+
+  <Expandable title="properties">
+    <ResponseField name="tasks" type="object[]">
+      All tasks for this project, ordered by creation date (oldest first).
+
+      <Expandable title="properties">
+        <ResponseField name="id" type="string">
+          Task ID.
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Task name.
+        </ResponseField>
+        <ResponseField name="notes" type="string | null">
+          Optional task notes.
+        </ResponseField>
+        <ResponseField name="sortOrder" type="number">
+          Display order within the project.
+        </ResponseField>
+        <ResponseField name="isCompleted" type="boolean">
+          Whether the task has been marked complete.
+        </ResponseField>
+        <ResponseField name="projectedHours" type="number">
+          Estimated hours for this task.
+        </ResponseField>
+        <ResponseField name="rate" type="string">
+          Task-level rate as a decimal string. Overrides the project rate when billing this task.
+        </ResponseField>
+        <ResponseField name="isFlatRate" type="boolean">
+          Whether this task is billed at a flat rate.
+        </ResponseField>
+        <ResponseField name="dueDate" type="string | null">
+          ISO 8601 due date for this task.
+        </ResponseField>
+        <ResponseField name="createdAt" type="string">
+          ISO 8601 datetime when the task was created.
+        </ResponseField>
+        <ResponseField name="updatedAt" type="string">
+          ISO 8601 datetime when the task was last modified.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Returns `404` with `{ "error": "Not found" }` if the project does not exist or belongs to a different organization.

@@ -1,0 +1,119 @@
+---
+title: "Background jobs"
+description: "LWD Invoices uses Inngest to run all scheduled and event-driven background processing, including recurring invoices, payment reminders, overdue detection, and automated emails."
+keywords: ["inngest", "background jobs", "cron", "recurring invoices", "payment reminders", "automation", "scheduled"]
+---
+
+All background processing in LWD Invoices runs through [Inngest](https://inngest.com). Inngest handles scheduling, retries, and observability for every automated workflow in the app.
+
+<Warning>
+  Background jobs are required for recurring invoices, payment reminders, overdue invoice detection, late fees, and email automations. If Inngest is not configured, these features will not run. While the app starts without Inngest credentials, all scheduled workflows will be silently inactive.
+</Warning>
+
+## Required environment variables
+
+```bash .env
+INNGEST_SIGNING_KEY="signkey-..."
+INNGEST_EVENT_KEY="..."
+```
+
+These are optional in `.env.example` but required for background jobs to function in production.
+
+## Inngest setup
+
+<Steps>
+  <Step title="Create an Inngest account">
+    Sign up at [inngest.com](https://inngest.com). A free tier is available and is sufficient for most small-business workloads.
+  </Step>
+  <Step title="Create a new app">
+    In the Inngest dashboard, create a new app. Give it a name that matches your deployment (e.g., `lwd-invoices-production`).
+  </Step>
+  <Step title="Copy your keys">
+    From the app's settings page, copy the **Signing Key** and **Event Key**. Set them as `INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` in your environment.
+  </Step>
+  <Step title="Configure the webhook endpoint">
+    In the Inngest dashboard, add a sync URL pointing to your deployed app:
+
+    ```
+    https://yourdomain.com/api/inngest
+    ```
+
+    Inngest will call this endpoint to discover your registered functions and to deliver events.
+  </Step>
+</Steps>
+
+## Local development
+
+Run the Inngest Dev Server alongside `npm run dev` to test background jobs locally without a live Inngest account:
+
+```bash
+npx inngest-cli@latest dev
+```
+
+The dev server runs at `http://localhost:8288` and provides a UI for triggering events, inspecting function runs, and replaying failures. Your app automatically connects to the dev server when `NODE_ENV` is `development`.
+
+## Background job functions
+
+LWD Invoices registers the following functions with Inngest. All cron schedules run in UTC.
+
+<CardGroup cols={2}>
+  <Card title="Recurring invoices" icon="rotate">
+    Runs daily at **6:00 AM UTC**. Finds all active `RecurringInvoice` records whose `nextRunAt` has passed and generates a new invoice for each one, copying the template invoice's lines and taxes. Supports daily, weekly, monthly, and yearly frequencies. If `autoSend` is enabled on the recurring config, the generated invoice is immediately placed in `SENT` status.
+  </Card>
+  <Card title="Recurring expenses" icon="receipt">
+    Runs daily at **6:00 AM UTC**. Finds active `RecurringExpense` records whose `nextRunAt` has passed and generates a new expense entry for each one. Supports the same frequency options as recurring invoices.
+  </Card>
+  <Card title="Payment reminders" icon="bell">
+    Runs daily at **8:00 AM UTC**. Scans invoices with status `SENT` or `PARTIALLY_PAID` and a due date within the next 90 days. Sends a reminder email when today matches a configured reminder day (from `paymentReminderDays` on the organization, or `reminderDaysOverride` on the invoice). Emails include a PDF attachment of the invoice.
+  </Card>
+  <Card title="Overdue invoices" icon="triangle-exclamation">
+    Runs daily at **7:00 AM UTC**. Finds invoices with status `SENT` or `PARTIALLY_PAID` whose due date has passed, marks them as `OVERDUE`, sends an overdue email to the client (with PDF attachment), and creates an in-app notification for organization admins.
+  </Card>
+  <Card title="Late fees" icon="dollar-sign">
+    Runs daily at **7:30 AM UTC**. For organizations with late fees enabled, finds all `OVERDUE` invoices and applies a late fee entry if the grace period has passed and the fee has not already been applied. Supports fixed and percentage fee types, recurring fees on an interval, and a maximum number of applications.
+  </Card>
+  <Card title="Email automations" icon="bolt">
+    Runs daily at **9:00 AM UTC**. Processes all enabled `EmailAutomation` records with `delayDays > 0`. For each automation, checks whether the trigger condition has been met and enough time has elapsed, then sends the templated email if it has not already been sent (tracked via `EmailAutomationLog`).
+  </Card>
+  <Card title="Email automation events" icon="paper-plane">
+    Event-driven (not a cron). Fires immediately when `invoice/payment.received`, `invoice/sent`, or `invoice/viewed` events are published. Handles automations with `delayDays = 0` so they are sent in real time rather than waiting for the daily cron.
+  </Card>
+  <Card title="Reminder sequences" icon="list-check">
+    Runs daily at **8:00 AM UTC**. Processes custom reminder sequences. For each active invoice with a due date, determines which sequence step is scheduled for today (based on `daysRelativeToDue`), and sends the templated email if that step has not already been sent. Skips pre-due steps for reliable payers when Smart Reminders is enabled.
+  </Card>
+  <Card title="Scheduled reports" icon="chart-bar">
+    Runs daily at **7:00 AM UTC**. Checks all enabled `ScheduledReport` records to see if any are due today based on their frequency and day configuration. Generates the report and emails it to the configured recipient list.
+  </Card>
+  <Card title="Cleanup pending users" icon="trash">
+    Runs daily at **3:00 AM UTC**. Removes `User` records that were created during sign-up but never completed onboarding (identified by `organizationId = "__pending__"`), if they are more than 7 days old.
+  </Card>
+</CardGroup>
+
+## Job reliability
+
+- **Idempotency**: Each job is designed to be safe to run multiple times. Payment receipt records, automation logs, and reminder logs prevent duplicate actions even if a job is retried by Inngest after a transient failure.
+- **Failure isolation**: Jobs that process multiple records use `Promise.allSettled` so that a failure on one record does not prevent processing of the others.
+- **Non-fatal emails**: In the overdue and reminder jobs, email send failures are caught and logged but do not cause the job to fail or skip remaining records.
+
+## Monitoring
+
+Check the Inngest dashboard to view execution history, inspect individual function runs, and replay failed jobs. Each function reports a structured result (e.g., `{ processed, succeeded, failed }`) visible in the dashboard output.
+
+For production deployments, configure alerting in the Inngest dashboard for functions with elevated failure rates.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Email delivery" icon="envelope" href="/integrations/email">
+    Email automations and reminder sequences that background jobs process.
+  </Card>
+  <Card title="Payment gateways" icon="credit-card" href="/integrations/payments">
+    Smart reminders and how the reliable payer threshold affects reminder jobs.
+  </Card>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Recurring invoices and how they are configured.
+  </Card>
+  <Card title="Environment variables" icon="key" href="/configuration/environment-variables">
+    Full reference for `INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY`.
+  </Card>
+</CardGroup>

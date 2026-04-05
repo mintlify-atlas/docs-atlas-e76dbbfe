@@ -1,0 +1,83 @@
+---
+title: "API overview"
+description: "REST API v1 for external integrations — Bearer-token authenticated. Access clients, invoices, and projects programmatically."
+---
+
+The LWD Invoices REST API v1 lets you read your organization's data from external tools and scripts. All endpoints are read-only and scoped to the authenticated user's organization.
+
+## Base URL
+
+```
+{NEXT_PUBLIC_APP_URL}/api/v1
+```
+
+Replace `{NEXT_PUBLIC_APP_URL}` with the public URL of your LWD Invoices instance (e.g., `https://invoices.example.com/api/v1`).
+
+## Authentication
+
+All endpoints require a Supabase session token passed as a Bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <your-access-token>
+```
+
+See the [Authentication](/api-reference/authentication) page for details on how to obtain and use tokens.
+
+## Rate limiting
+
+The API enforces a sliding-window rate limit of **60 requests per token per minute**. When the limit is exceeded, the API returns a `429 Too Many Requests` response. The window resets on a rolling basis as older requests age out.
+
+## Pagination
+
+List endpoints support page-based pagination via query parameters.
+
+| Parameter  | Default | Maximum | Description                     |
+| ---------- | ------- | ------- | ------------------------------- |
+| `page`     | `1`     | —       | Page number (1-indexed)         |
+| `per_page` | `20`    | `100`   | Number of results per page      |
+
+All list responses include the current page number:
+
+```json
+{
+  "data": [...],
+  "page": 1
+}
+```
+
+## Error responses
+
+Errors are returned as JSON with an `error` field describing the problem:
+
+```json
+{
+  "error": "message"
+}
+```
+
+### HTTP status codes
+
+| Code  | Meaning                                                             |
+| ----- | ------------------------------------------------------------------- |
+| `200` | Request succeeded                                                   |
+| `400` | Bad request — invalid query parameter value                         |
+| `401` | Unauthorized — missing, invalid, or expired token; no organization context |
+| `404` | Not found — resource does not exist or belongs to another organization |
+| `429` | Too many requests — rate limit exceeded                             |
+
+## Available resources
+
+<CardGroup cols={2}>
+  <Card title="Clients" icon="users" href="/api-reference/clients">
+    List and retrieve clients in your organization.
+  </Card>
+  <Card title="Invoices" icon="file-invoice" href="/api-reference/invoices">
+    List and retrieve invoices with optional status filtering.
+  </Card>
+  <Card title="Projects" icon="folder" href="/api-reference/projects">
+    List and retrieve projects with optional status filtering.
+  </Card>
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    How to obtain and use Bearer tokens for API access.
+  </Card>
+</CardGroup>

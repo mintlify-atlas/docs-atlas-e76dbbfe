@@ -1,0 +1,355 @@
+---
+title: 'Self-hosting'
+description: 'Complete guide to deploying LWD Invoices to production, covering every required service and platform options.'
+keywords: ['self-hosting', 'deployment', 'production', 'Netlify', 'Vercel', 'Docker']
+---
+
+LWD Invoices is designed to be self-hosted. This guide walks you through setting up every required service and deploying the application to production.
+
+## System requirements
+
+| Requirement | Minimum | Recommended |
+|---|---|---|
+| Node.js | 22+ | 22 LTS |
+| PostgreSQL | 14+ | 16 |
+| RAM | 512 MB | 1 GB |
+| Storage | 5 GB | 10 GB |
+
+## Deployment steps
+
+<Steps>
+
+<Step title="Database setup">
+
+LWD Invoices requires PostgreSQL 14 or later. Choose a provider:
+
+| Provider | Notes |
+|---|---|
+| **Supabase** (recommended) | Bundles database, auth, and file storage in one platform. Free tier available. |
+| **Neon** | Serverless PostgreSQL with a generous free tier and branch-based development. |
+| **Self-hosted PostgreSQL** | Full control; version 14+ required. |
+
+Once you have a database, set the connection string:
+
+```bash
+DATABASE_URL="postgresql://user:password@host:5432/lwd_invoices"
+```
+
+<Tip>
+  If you use Supabase for your database, you can also use it for authentication and file storage in the steps that follow — a single platform for all three.
+</Tip>
+
+</Step>
+
+<Step title="Supabase Auth setup">
+
+LWD Invoices uses Supabase Auth for user authentication and multi-tenant organization management. A Supabase project is required even if you use a separate database provider.
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Go to **Settings** → **API** and copy:
+   - **Project URL** → set as both `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL`
+   - **anon/public key** → set as `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role key** → set as `SUPABASE_SERVICE_ROLE_KEY` (keep this secret)
+3. Go to **Settings** → **Authentication** and configure providers:
+   - Enable the **Email** provider.
+   - Optionally enable OAuth providers such as Google or GitHub.
+4. Optionally enable MFA: **Settings** → **Authentication** → **Multi-Factor Authentication** → enable TOTP.
+
+<Info>
+  The app stores each user's organization ID in Supabase user metadata at `app_metadata.organizationId`. This value is set automatically during the onboarding flow when a user creates or joins an organization.
+</Info>
+
+After deploying, update the **Redirect URL** in your Supabase project to point to your production domain: `https://yourdomain.com/**`.
+
+</Step>
+
+<Step title="Supabase Storage setup">
+
+The app uses Supabase Storage for file attachments on invoices, expenses, and proposals.
+
+1. Go to your Supabase dashboard → **Storage**.
+2. Create the following buckets:
+
+   | Bucket | Purpose |
+   |---|---|
+   | `invoices` | Invoice file attachments |
+   | `expenses` | Expense receipts |
+   | `logos` | Organization logos |
+   | `proposals` | Proposal files |
+
+3. For each bucket, set RLS (Row Level Security) policies to enforce organization isolation. Policies should verify the authenticated user's `app_metadata.organizationId` against the file path prefix to prevent cross-organization access.
+
+<Warning>
+  Do not leave buckets public without RLS policies. All buckets should restrict read and write access to authenticated users belonging to the correct organization.
+</Warning>
+
+</Step>
+
+<Step title="Email delivery setup">
+
+Email is required for sending invoices, payment receipts, overdue reminders, and onboarding messages.
+
+1. Sign up at [resend.com](https://resend.com).
+2. Add your sending domain and complete domain verification (add the DNS records Resend provides).
+3. Create an API key → set as `RESEND_API_KEY`.
+4. Set your verified from address → `RESEND_FROM_EMAIL` (e.g., `invoices@yourdomain.com`).
+
+```bash
+RESEND_API_KEY="re_your-api-key"
+RESEND_FROM_EMAIL="invoices@yourdomain.com"
+```
+
+<Tip>
+  Resend's free tier supports up to 3,000 emails per month, which is sufficient for most small businesses.
+</Tip>
+
+</Step>
+
+<Step title="Payment gateway setup">
+
+Payment gateways are optional but required for accepting online payments through the client portal.
+
+**Stripe:**
+
+1. Create an account at [stripe.com](https://stripe.com).
+2. Go to **Dashboard** → **Developers** → **API keys**.
+3. Copy your keys:
+
+   ```bash
+   STRIPE_SECRET_KEY="sk_live_..."
+   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
+   ```
+
+4. Create a webhook endpoint pointing to `https://yourdomain.com/api/webhooks/stripe`.
+5. Copy the webhook signing secret:
+
+   ```bash
+   STRIPE_WEBHOOK_SECRET="whsec_..."
+   ```
+
+**PayPal:**
+
+1. Create an account at [developer.paypal.com](https://developer.paypal.com).
+2. Create a REST API application.
+3. Copy your credentials:
+
+   ```bash
+   PAYPAL_CLIENT_ID="your-paypal-client-id"
+   PAYPAL_CLIENT_SECRET="your-paypal-client-secret"
+   ```
+
+4. Create a webhook endpoint pointing to `https://yourdomain.com/api/webhooks/paypal`.
+
+<Note>
+  You can enable one, both, or neither payment gateway. Clients can always pay via bank transfer, cash, check, or money order — recorded manually in the app.
+</Note>
+
+</Step>
+
+<Step title="Background jobs setup">
+
+Background jobs power recurring invoices, payment reminders, overdue notifications, late fees, and scheduled reports. LWD Invoices uses Inngest for this.
+
+1. Sign up at [inngest.com](https://inngest.com) (free tier available).
+2. Create a new app in the Inngest dashboard.
+3. Copy your keys:
+
+   ```bash
+   INNGEST_SIGNING_KEY="your-inngest-signing-key"
+   INNGEST_EVENT_KEY="your-inngest-event-key"
+   ```
+
+4. After deploying, configure the Inngest webhook to point to `https://yourdomain.com/api/inngest`.
+
+For local development and testing, run the Inngest dev server in a separate terminal — it connects to your local app and executes jobs in real time:
+
+```bash
+npx inngest-cli@latest dev
+```
+
+</Step>
+
+<Step title="Security configuration">
+
+Generate a secure encryption key for payment gateway credentials. This key is used to encrypt stored Stripe and PayPal credentials per-organization using AES-256-GCM:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the output as `GATEWAY_ENCRYPTION_KEY`:
+
+```bash
+GATEWAY_ENCRYPTION_KEY="your-64-character-hex-output"
+```
+
+<Warning>
+  Back up `GATEWAY_ENCRYPTION_KEY` securely. If you lose this key, all stored payment gateway credentials will be unrecoverable and organizations will need to re-enter their payment settings.
+</Warning>
+
+</Step>
+
+<Step title="Deploy the application">
+
+<Tabs>
+
+<Tab title="Netlify">
+
+Netlify is the recommended deployment platform. Build settings are pre-configured in `netlify.toml` — no manual build configuration is needed.
+
+1. Connect your GitHub repository to Netlify (New site → Import from GitHub).
+2. Netlify detects `netlify.toml` automatically. The build command is `prisma generate && next build`.
+3. Go to **Site settings** → **Environment variables** and add all required environment variables.
+4. Run database migrations from your local machine before the first deploy:
+
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+5. Trigger your first deploy. Netlify sets `NODE_VERSION=22` automatically from `netlify.toml`.
+
+</Tab>
+
+<Tab title="Vercel">
+
+Vercel provides native Next.js support with zero configuration.
+
+1. Import your repository at [vercel.com/new](https://vercel.com/new).
+2. Vercel auto-detects Next.js and sets the build command to `next build`.
+
+   <Note>
+     Override the build command to `prisma migrate deploy && next build` so migrations run on each deploy, or run `npx prisma migrate deploy` manually before deploying.
+   </Note>
+
+3. Add all environment variables in the Vercel project settings.
+4. Deploy.
+
+</Tab>
+
+<Tab title="Docker / VPS">
+
+For a self-managed server or containerized deployment:
+
+```bash
+# Build the Docker image
+docker build -t lwd-invoices .
+
+# Run the container
+docker run -p 3000:3000 --env-file .env lwd-invoices
+```
+
+For a VPS without Docker, build and start the app directly:
+
+```bash
+npm install
+npx prisma migrate deploy
+npm run build
+npm start
+```
+
+Run the app behind a reverse proxy (nginx or Caddy) that handles TLS termination and forwards traffic to port 3000.
+
+</Tab>
+
+</Tabs>
+
+</Step>
+
+<Step title="Post-deployment configuration">
+
+After your first successful deploy, complete these steps:
+
+1. **Update webhook URLs** to point to your production domain:
+   - **Supabase**: Set auth webhook → `https://yourdomain.com/api/webhooks/supabase`
+   - **Stripe**: Update webhook endpoint → `https://yourdomain.com/api/webhooks/stripe`
+   - **PayPal**: Update webhook endpoint → `https://yourdomain.com/api/webhooks/paypal`
+   - **Inngest**: Update webhook endpoint → `https://yourdomain.com/api/inngest`
+
+2. **Verify email delivery**: Create a test invoice and send it to confirm Resend is delivering email from your verified domain.
+
+3. **Test the payment flow**: Create a test invoice and complete a payment using Stripe's test card numbers or PayPal's sandbox environment.
+
+4. **Update `NEXT_PUBLIC_APP_URL`**: Set this to your production URL (e.g., `https://yourdomain.com`). It is used for client portal links and payment redirect URLs.
+
+</Step>
+
+</Steps>
+
+## Cost estimation
+
+For a small business handling fewer than 100 invoices per month, all services have generous free tiers:
+
+| Service | Estimated cost |
+|---|---|
+| Database (Supabase or Neon) | $0–25/month |
+| Email (Resend) | $0–10/month (up to 3,000 emails) |
+| Background jobs (Inngest) | $0 (free tier) |
+| Hosting (Netlify) | $0–20/month |
+| File storage | $0–5/month |
+| **Total** | **$0–60/month** |
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="Database connection errors">
+
+- Verify `DATABASE_URL` is correctly formatted: `postgresql://user:password@host:5432/dbname`.
+- Check that your database host allows inbound connections from your deployment provider's IP ranges.
+- If using Supabase, use the **connection pooling** URL for serverless environments (found under **Settings** → **Database** → **Connection pooling**).
+- Confirm that `npx prisma migrate deploy` has been run and completed without errors before the first deploy.
+
+</Accordion>
+
+<Accordion title="Authentication not working">
+
+- Verify all four Supabase environment variables are set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Check that the redirect URL for your production domain is added in **Supabase** → **Authentication** → **URL configuration** → **Redirect URLs**.
+- Confirm `NEXT_PUBLIC_APP_URL` matches your production domain exactly.
+
+</Accordion>
+
+<Accordion title="File uploads failing">
+
+- Confirm all four required Storage buckets exist in your Supabase project: `invoices`, `expenses`, `logos`, `proposals`.
+- Check that `SUPABASE_SERVICE_ROLE_KEY` is set correctly — the service role key is required for server-side storage operations.
+- Verify RLS policies are configured for each bucket. Overly restrictive policies can block legitimate uploads.
+
+</Accordion>
+
+<Accordion title="Background jobs not running">
+
+- Confirm `INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` are set in your production environment variables.
+- In the Inngest dashboard, check that the webhook URL is set to `https://yourdomain.com/api/inngest` and that the endpoint is reachable.
+- Check the Inngest dashboard → **Functions** to see job execution history and any error details.
+- For local testing, make sure `npx inngest-cli@latest dev` is running before triggering any background jobs.
+
+</Accordion>
+
+<Accordion title="Email not sending">
+
+- Verify your sending domain is fully verified in the Resend dashboard (all DNS records propagated).
+- Confirm `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and that the from address matches your verified domain.
+- Check Resend's **Logs** section for delivery attempts and any bounce or rejection details.
+- Ensure you are not exceeding Resend's rate limits on the free tier (3,000 emails/month, 100/day).
+
+</Accordion>
+
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Environment variables" icon="key" href="/configuration/environment-variables">
+    Complete reference for every environment variable with descriptions and example values.
+  </Card>
+  <Card title="Organization settings" icon="building" href="/configuration/organization-settings">
+    Configure your organization's branding, currency, tax rates, and notification preferences.
+  </Card>
+  <Card title="Multi-tenancy" icon="users" href="/configuration/multi-tenancy">
+    Understand how organization isolation works and how to manage multiple organizations.
+  </Card>
+  <Card title="Contributing" icon="code-branch" href="/contributing/guidelines">
+    Guidelines for contributing to LWD Invoices, including code style, testing, and pull request process.
+  </Card>
+</CardGroup>

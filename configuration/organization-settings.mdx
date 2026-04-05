@@ -1,0 +1,258 @@
+---
+title: 'Organization settings'
+description: 'Configure your organization profile, invoicing defaults, payment gateways, reminders, and more from the Settings section.'
+---
+
+All settings in LWD Invoices are scoped to your organization. Navigate to **Settings** from the main sidebar to access the configuration areas described below. Changes take effect immediately and apply to all team members in your organization.
+
+<AccordionGroup>
+
+  <Accordion title="Account settings" icon="building">
+    Configure your organization's identity, branding, and numbering.
+
+    **Organization profile**
+
+    | Setting | Description |
+    |---|---|
+    | Organization name | Display name used on invoices, emails, and the client portal. |
+    | Logo | Upload your organization logo. Displayed on invoice PDFs and the client portal. Stored in Supabase Storage. |
+    | Address line 1 | Street address, printed on invoice PDFs. |
+    | Address line 2 | Suite, unit, or floor number. |
+    | City | City for your organization address. |
+    | State / Province | State or province. |
+    | Postal code | ZIP or postal code. |
+    | Country | Country. |
+    | Phone | Phone number shown on invoices. |
+
+    **Invoice and credit note numbering**
+
+    | Setting | Description |
+    |---|---|
+    | Invoice prefix | Prefix prepended to invoice numbers (e.g., `INV` produces `INV-0042`). Defaults to `INV`. |
+    | Credit note prefix | Prefix prepended to credit note numbers (e.g., `CN` produces `CN-0001`). Defaults to `CN`. |
+
+    **Portal branding**
+
+    These settings customize the appearance of the client-facing portal.
+
+    | Setting | Description |
+    |---|---|
+    | Brand color | Primary hex color used across the UI and client portal. Defaults to `#2563eb`. |
+    | Portal tagline | Short tagline shown on the client portal homepage. |
+    | Portal footer text | Custom text displayed in the client portal footer. |
+    | Brand font | Font used in the client portal: `inter`, `georgia`, or `system`. |
+    | Hide "Powered by" badge | When enabled, removes the LWD Invoices branding from the client portal. |
+  </Accordion>
+
+  <Accordion title="Invoice settings" icon="file-invoice">
+    Set defaults that apply when creating new invoices and control how PDF invoices are rendered.
+
+    | Setting | Description |
+    |---|---|
+    | Default payment terms | Number of days after the invoice date that payment is due. Defaults to 30 days. Can be overridden per client and per invoice. |
+    | Default deposit percent | If set, new invoices will pre-populate a deposit line for this percentage of the invoice total. |
+    | Invoice template | PDF layout style: `modern`, `classic`, `minimal`, or `compact`. |
+    | Invoice font family | Font used in the PDF: `helvetica`, `georgia`, or `courier`. |
+    | Invoice accent color | Hex color used for headings and highlights in the PDF. Falls back to your brand color if not set. |
+    | Show logo on PDF | When enabled, your organization logo appears at the top of every invoice PDF. Defaults to on. |
+    | Invoice footer text | Custom text printed in the footer of every invoice PDF (e.g., payment instructions, thank-you message). |
+  </Accordion>
+
+  <Accordion title="Payment settings" icon="credit-card">
+    Configure online payment gateways and manual payment methods. Gateway credentials are encrypted at rest per organization using AES-256-GCM.
+
+    **Online gateways**
+
+    Each online gateway can be enabled or disabled independently. When enabled, clients can pay directly from the client portal.
+
+    | Gateway | Fields |
+    |---|---|
+    | Stripe | Secret key, publishable key, webhook secret. Enable/disable toggle. Optional surcharge percentage. |
+    | PayPal | Client ID, client secret. Enable/disable toggle. Optional surcharge percentage. |
+
+    <Note>
+      Gateway credentials entered here are encrypted before being stored in the database using the `GATEWAY_ENCRYPTION_KEY` environment variable. The unencrypted values are never persisted.
+    </Note>
+
+    **Surcharges**
+
+    You can configure a surcharge percentage for each gateway (e.g., `2.9` for 2.9%). The surcharge amount is calculated and displayed to the client at checkout and recorded separately on the payment record.
+
+    **Manual payment methods**
+
+    You can enable any combination of the following manual methods. Enabled methods appear as options when recording a payment against an invoice.
+
+    | Method | Description |
+    |---|---|
+    | Bank transfer | Payment by direct bank transfer or ACH. |
+    | Cash | In-person cash payment. |
+    | Check | Payment by paper check. |
+    | Money order | Payment by money order. |
+  </Accordion>
+
+  <Accordion title="Reminder settings" icon="bell">
+    Control when and how payment reminders are sent to clients before invoices become overdue.
+
+    **Basic reminder days**
+
+    Set a list of days relative to the due date when reminders are sent. The default is `[1, 3]`, meaning reminders are sent 1 day and 3 days before the due date. These apply to all invoices unless overridden by a reminder sequence.
+
+    **Reminder sequences**
+
+    Sequences let you define multi-step reminder workflows with custom email subjects and bodies. Each step specifies a `daysRelativeToDue` value:
+
+    - Negative values send the reminder before the due date (e.g., `-3` = 3 days before due).
+    - `0` sends on the due date.
+    - Positive values send after the due date (e.g., `7` = 7 days overdue).
+
+    You can mark one sequence as the default, and optionally override the sequence on individual invoices.
+
+    **Smart reminders**
+
+    Smart reminders automatically skip pre-due reminders for clients who have an on-time payment rate at or above a configurable threshold.
+
+    | Setting | Description |
+    |---|---|
+    | Enable smart reminders | When on, clients above the threshold are not sent pre-due reminders. Defaults to off. |
+    | Smart reminder threshold | On-time payment percentage required to suppress reminders. Defaults to 80%. |
+
+    <Note>
+      Smart reminders only suppress reminders sent *before* the due date. Overdue reminders are always sent regardless of payment history.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Late fee settings" icon="triangle-alert">
+    Automatically apply late fees to overdue invoices via the background job system.
+
+    | Setting | Description |
+    |---|---|
+    | Enable late fees | Master toggle. When off, no late fees are applied. Defaults to off. |
+    | Fee type | `percentage` (calculated as a percent of the outstanding balance) or `fixed` (a flat amount). |
+    | Fee amount | The percentage rate or fixed amount to charge. |
+    | Grace days | Number of days after the due date before the first late fee is applied. Defaults to 0. |
+    | Recurring | When enabled, the late fee is applied repeatedly on the configured interval until paid. |
+    | Max applications | Maximum number of times a late fee can be applied to a single invoice. Leave blank for unlimited. |
+    | Interval days | If recurring, the number of days between each late fee application. Defaults to 30. |
+
+    Late fees are recorded as `LateFeeEntry` records linked to the invoice and can be individually waived from the invoice detail page.
+  </Accordion>
+
+  <Accordion title="Expense settings" icon="receipt">
+    Manage the categories and suppliers used to classify expenses.
+
+    **Expense categories**
+
+    Create, rename, and delete expense categories (e.g., Software, Travel, Meals). Categories are used to group expenses in reports and the expense list.
+
+    **Expense suppliers**
+
+    Manage a list of suppliers or vendors (e.g., AWS, Adobe, Google). Associating a supplier with an expense helps track spending by vendor.
+
+    <Note>
+      Deleting a category or supplier that is already assigned to expenses will not remove the association from existing expense records — it only removes the option from future expense forms.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Project settings" icon="folder">
+    Configure defaults that apply to projects and time tracking.
+
+    **Time rounding interval**
+
+    Set the interval (in minutes) to which tracked time is rounded when logging time entries. Set to `0` to disable rounding and record exact minutes. Common values: `6`, `15`, `30`.
+
+    **Task statuses**
+
+    Customize the statuses used on project task boards. For each status you can set:
+
+    | Field | Description |
+    |---|---|
+    | Title | Display name for the status (e.g., "In Progress", "Blocked"). |
+    | Background color | Hex color for the status badge background. |
+    | Font color | Hex color for the status badge text. |
+    | Sort order | Controls the order statuses appear on the task board. |
+
+    You can add as many custom statuses as needed, and reorder or delete them at any time.
+  </Accordion>
+
+  <Accordion title="Team settings" icon="users">
+    Invite team members and manage their access to your organization.
+
+    **Inviting team members**
+
+    Enter an email address and select a role to send an invitation. The invitee receives an email with a unique token-based invitation link. Invitation links expire after a set period.
+
+    **Roles**
+
+    | Role | Description |
+    |---|---|
+    | Owner | Full access to all features and settings. Can delete the organization. Only one owner per organization. |
+    | Admin | Full access to all features and settings. Cannot delete the organization. |
+    | Accountant | Can view and manage financial data: invoices, payments, expenses, reports. Cannot manage team or security settings. |
+    | Viewer | Read-only access to all data. Cannot create, edit, or delete records. |
+
+    **Managing invitations**
+
+    The invitations list shows all sent invitations and their current status: `Pending`, `Accepted`, `Expired`, or `Revoked`. You can revoke a pending invitation at any time to invalidate the link before it is used.
+  </Accordion>
+
+  <Accordion title="Security settings" icon="shield">
+    Control authentication security requirements for your organization.
+
+    | Setting | Description |
+    |---|---|
+    | Require 2FA for all members | When enabled, all team members must have TOTP-based multi-factor authentication configured before they can access the organization. Defaults to off. |
+
+    <Note>
+      Two-factor authentication uses TOTP (Time-based One-Time Passwords), compatible with authenticator apps such as Google Authenticator, Authy, and 1Password. MFA configuration is managed through Supabase Auth.
+    </Note>
+
+    Individual users can set up 2FA from their own profile settings. When organization-wide 2FA is required, users without 2FA configured will be prompted to set it up before accessing any protected pages.
+  </Accordion>
+
+  <Accordion title="Automation settings" icon="zap">
+    Set up automatic email sequences triggered by invoice events.
+
+    **Email automations**
+
+    Each automation defines an email that is sent automatically when a specific event occurs. You can create multiple automations for the same trigger with different delays (e.g., send a thank-you 0 days after payment, and a follow-up 7 days after).
+
+    | Field | Description |
+    |---|---|
+    | Trigger | The event that fires the automation. |
+    | Delay (days) | Number of days after the trigger event to send the email. Set to `0` to send immediately. |
+    | Subject | Email subject line. |
+    | Body | Email body content. |
+    | Enabled | Toggle to pause an automation without deleting it. |
+
+    **Available triggers**
+
+    | Trigger | When it fires |
+    |---|---|
+    | `PAYMENT_RECEIVED` | A payment is recorded against an invoice. |
+    | `INVOICE_SENT` | An invoice is sent to the client. |
+    | `INVOICE_VIEWED` | The client opens the invoice in the portal. |
+    | `INVOICE_OVERDUE` | An invoice passes its due date unpaid. |
+
+    <Note>
+      Each automation fires at most once per invoice. If an invoice triggers the same automation event again (e.g., a second payment), a duplicate email is not sent.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Report settings" icon="chart-bar">
+    Schedule automatic report delivery to one or more email recipients.
+
+    **Scheduled reports**
+
+    Each scheduled report defines a report type, delivery frequency, and list of recipient email addresses. Reports are generated and emailed by the background job system.
+
+    | Field | Description |
+    |---|---|
+    | Report type | The report to generate: Profit & Loss, Aging, Unpaid Invoices, Expenses, or Tax Liability. |
+    | Frequency | How often to send: `Weekly`, `Monthly`, or `Quarterly`. |
+    | Day of week | For weekly reports, the day of the week to send (Sunday–Saturday). |
+    | Day of month | For monthly and quarterly reports, the day of the month to send (1–28). |
+    | Recipients | One or more email addresses to send the report to. |
+    | Enabled | Toggle to pause a scheduled report without deleting it. |
+  </Accordion>
+
+</AccordionGroup>

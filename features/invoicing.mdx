@@ -1,0 +1,204 @@
+---
+title: "Invoicing"
+description: "Create, send, and manage professional invoices with line items, taxes, discounts, partial payments, recurring schedules, credit notes, and e-signatures."
+---
+
+<CardGroup cols={2}>
+  <Card title="Multiple invoice types" icon="file-invoice">
+    Simple, detailed, estimate, and credit note formats — each suited for a different billing scenario.
+  </Card>
+  <Card title="Flexible line items" icon="list">
+    Seven line item types including time entries, expenses, period-based rates, and percentage or fixed discounts.
+  </Card>
+  <Card title="Partial payments" icon="money-bill-wave">
+    Define deposit schedules and milestone-based payment plans with automatic status tracking.
+  </Card>
+  <Card title="Recurring invoices" icon="rotate">
+    Daily, weekly, monthly, or yearly schedules with optional auto-send via background jobs.
+  </Card>
+  <Card title="Credit notes" icon="file-circle-minus">
+    Issue credit notes against existing invoices and apply them to reduce outstanding balances.
+  </Card>
+  <Card title="E-signatures" icon="signature">
+    Clients can sign estimates and proposals directly from the portal with full audit trail compliance.
+  </Card>
+</CardGroup>
+
+## Invoice types
+
+When you create a new invoice you choose one of four types:
+
+| Type | Purpose |
+|---|---|
+| `SIMPLE` | Single-amount invoice — enter one flat amount with no line items |
+| `DETAILED` | Standard invoice with individual line items, taxes, and discounts |
+| `ESTIMATE` | Proposal or quote that a client can accept or reject (and later sign) |
+| `CREDIT_NOTE` | Issued against a previous invoice to reduce or cancel the amount owed |
+
+## Creating an invoice
+
+<Steps>
+  <Step title="Open the invoice form">
+    Go to **Invoices** in the sidebar and click **New invoice**. Select the invoice type before filling in any other fields.
+  </Step>
+  <Step title="Select a client and currency">
+    Choose the client this invoice is for. Pick the billing currency — each invoice carries its own exchange rate snapshot at the time of creation.
+  </Step>
+  <Step title="Set dates">
+    Enter the invoice date and an optional due date. The default payment terms from the client or your organization settings are applied automatically.
+  </Step>
+  <Step title="Add line items">
+    Click **Add line** to add one or more line items. Each line has a name, optional description, quantity, rate, and up to two optional discounts (percentage or fixed). Choose a line type from the list below to reflect what you are billing for.
+  </Step>
+  <Step title="Apply taxes">
+    Attach one or more tax rates to any line item. Taxes are configured under Settings → Taxes. Compound taxes (calculated on top of previously applied taxes) are supported.
+  </Step>
+  <Step title="Add an invoice-level discount">
+    Optionally apply a percentage or fixed discount to the entire invoice, separate from any per-line discounts. Enter a short description to explain it on the invoice.
+  </Step>
+  <Step title="Configure payment schedule (optional)">
+    Under **Payment schedule**, add deposit or milestone installments. Each installment has an amount (fixed or percentage of total), a due date, and an optional note.
+  </Step>
+  <Step title="Save or send">
+    Click **Save as draft** to keep working, or **Send** to deliver the invoice to the client by email and mark it as sent.
+  </Step>
+</Steps>
+
+## Line item types
+
+| Type | When to use |
+|---|---|
+| `STANDARD` | A regular product or service line |
+| `TIME_ENTRY` | Billable hours pulled from project time tracking |
+| `FLAT_RATE` | A fixed fee for a deliverable, regardless of hours |
+| `EXPENSE` | A cost you are passing through from expense tracking |
+| `PERCENTAGE_DISCOUNT` | A percentage discount applied to preceding lines |
+| `FIXED_DISCOUNT` | A fixed-amount discount applied to the invoice |
+| `PERIOD_DAY` / `PERIOD_WEEK` / `PERIOD_MONTH` / `PERIOD_YEAR` | Rate charged per time period (e.g., monthly retainer) |
+
+## Invoice statuses
+
+An invoice moves through the following statuses during its lifecycle:
+
+| Status | Meaning |
+|---|---|
+| `DRAFT` | Created but not yet sent to the client |
+| `SENT` | Delivered to the client; awaiting payment |
+| `PARTIALLY_PAID` | At least one installment has been received |
+| `PAID` | Fully paid |
+| `OVERDUE` | Past the due date and still unpaid |
+| `ACCEPTED` | Estimate accepted (or signed) by the client |
+| `REJECTED` | Estimate declined by the client |
+
+<Note>
+Only invoices with a status of `DRAFT` or `SENT` can be edited. Invoices that are paid, partially paid, or overdue cannot be deleted.
+</Note>
+
+## PDF generation and email delivery
+
+Every invoice can be downloaded as a PDF or sent by email directly from the invoice detail page. PDFs are rendered using your organization's chosen template (modern, classic, minimal, or compact), accent color, logo, and optional footer text.
+
+When you click **Send**, the invoice email is dispatched to the client's email address via Resend. Organization owners are automatically BCC'd on outgoing invoice emails. You can also resend a payment receipt email at any time from a paid invoice.
+
+## Partial payments and deposit schedules
+
+Add a payment schedule to any invoice to split the total into multiple installments:
+
+- Each installment can be a **fixed amount** or a **percentage of the invoice total**.
+- Set an optional due date and note for each installment.
+- When you record a payment against an installment, the invoice status automatically moves from `SENT` to `PARTIALLY_PAID` or `PAID` depending on whether all installments are settled.
+
+Clients paying through the portal can pay individual installments online via Stripe.
+
+## Recurring invoices
+
+Turn any invoice into a recurring template to have it regenerated automatically on a schedule.
+
+<AccordionGroup>
+  <Accordion title="Setting up a recurring schedule">
+    On any invoice, open **Recurring** and choose a frequency (daily, weekly, monthly, or yearly), an interval (e.g., every 2 months), a start date, and an optional end date or maximum occurrence count.
+
+    Enable **Auto-send** to have each generated invoice automatically sent to the client by email. Leave it off if you prefer to review new invoices before delivery.
+  </Accordion>
+  <Accordion title="How recurring generation works">
+    A background job (powered by Inngest) checks for due recurring schedules and creates new invoice copies at the configured interval. Each generated invoice gets its own invoice number and starts in `DRAFT` status unless auto-send is enabled.
+  </Accordion>
+  <Accordion title="Managing active schedules">
+    You can view all active recurring invoices by filtering the invoice list with **Recurring: active**. Pause a schedule at any time by deactivating it from the invoice detail page.
+  </Accordion>
+</AccordionGroup>
+
+## Credit notes
+
+A credit note is a special invoice type (`CREDIT_NOTE`) that reduces the amount owed on an existing invoice.
+
+<Steps>
+  <Step title="Create the credit note">
+    Navigate to the original invoice and choose **Issue credit note**. The credit note is pre-populated with the original invoice's details. Adjust the lines and amounts as needed.
+  </Step>
+  <Step title="Apply it to an invoice">
+    Once the credit note is in `ISSUED` status, open the target invoice and apply the credit. The applied amount is tracked in a `CreditNoteApplication` record and deducted from the invoice balance.
+  </Step>
+</Steps>
+
+Credit note statuses: `DRAFT` → `ISSUED` → `APPLIED` → `VOIDED`.
+
+## Late fees
+
+Automatically add late fees to overdue invoices:
+
+- Configure a **fee type** (percentage of balance or fixed amount), **grace days** before the fee applies, and whether fees recur on an interval.
+- Set a maximum number of applications to cap total late charges.
+- Individual late fee entries can be **waived** by an admin, recording the waiver date and user for the audit log.
+
+Configure the default late fee policy under **Settings → Organization**.
+
+## Reminder sequences
+
+Payment reminders are sent automatically based on configurable reminder sequences.
+
+<AccordionGroup>
+  <Accordion title="Configuring a sequence">
+    Go to **Settings → Reminders** to create named sequences. Each sequence contains one or more steps. For each step, set:
+    - `daysRelativeToDue`: Negative values send the reminder before the due date, `0` sends on the due date, and positive values send after it.
+    - A custom email subject and body for that step.
+
+    Mark one sequence as the default; it applies to all new invoices automatically.
+  </Accordion>
+  <Accordion title="Per-invoice overrides">
+    On any individual invoice, you can override the reminder sequence or specify a custom list of reminder days. This lets you give key clients a more or less aggressive follow-up schedule without changing the default.
+  </Accordion>
+  <Accordion title="Deduplication">
+    Each reminder step is only ever sent once per invoice. If a step was already sent, it will not be resent even if the job runs again.
+  </Accordion>
+</AccordionGroup>
+
+## E-signatures on estimates
+
+When you send an estimate or proposal through the client portal, the client can sign it with an electronic signature.
+
+**What is collected:**
+- Signer's full name and email address
+- A drawn or typed signature (stored encrypted)
+- IP address and timestamp
+
+After signing, the estimate status changes to `ACCEPTED` and a `SignatureAuditLog` record is created containing SHA-256 hashes of both the document content and the signature data. This provides a tamper-evident audit trail for compliance purposes.
+
+<Tip>
+Once signed, a proposal cannot be signed again. If you need to reissue it, duplicate the estimate and send the new copy.
+</Tip>
+
+## Audit log
+
+Every significant action taken on an invoice is recorded in the organization audit log, including:
+
+| Action | Triggered when |
+|---|---|
+| `CREATED` | A new invoice is saved |
+| `UPDATED` | Invoice fields or line items are changed |
+| `SENT` | Invoice is delivered to the client |
+| `STATUS_CHANGED` | Status transitions (e.g., draft → sent, sent → paid) |
+| `PAYMENT_RECEIVED` | A payment is recorded |
+| `VIEWED` | The invoice is opened in the portal |
+
+View the full audit history under **Settings → Audit log**.

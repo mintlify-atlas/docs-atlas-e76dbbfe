@@ -1,0 +1,138 @@
+---
+title: 'Multi-tenancy'
+description: 'Understand how LWD Invoices isolates data between organizations and manages user access within a team.'
+---
+
+LWD Invoices is built as a multi-tenant application. Each organization is a fully isolated container — no data crosses organizational boundaries. This architecture lets multiple businesses run independently on the same deployment without any risk of data leakage between them.
+
+## How it works
+
+Every record in the database — invoices, clients, projects, expenses, payments, and more — carries an `organizationId` foreign key. Every database query is scoped to that ID, enforced at the tRPC procedure layer on every request.
+
+<Note>
+  In the current version, users belong to exactly one organization. Switching between organizations is not supported — each user account is tied to a single organization at signup.
+</Note>
+
+**Auth and organization binding**
+
+Organization membership is stored in Supabase Auth user metadata. When a user completes onboarding, the application writes their `organizationId` into `app_metadata.organizationId` in Supabase. This value is included in every JWT issued by Supabase and is extracted by tRPC on each incoming request to determine which organization's data to query.
+
+Because `app_metadata` can only be written by the service role (not by the user themselves), users cannot forge or change their organization membership.
+
+**Request flow**
+
+Every authenticated tRPC request follows this path:
+
+<Steps>
+  <Step title="JWT verified">
+    The Supabase JWT in the request header is verified using the Supabase service role client.
+  </Step>
+  <Step title="Organization ID extracted">
+    The tRPC context reads `app_metadata.organizationId` from the verified token.
+  </Step>
+  <Step title="Query scoped">
+    All database queries in the procedure include a `WHERE organizationId = ?` clause using the extracted ID.
+  </Step>
+  <Step title="Response returned">
+    Only data belonging to the authenticated organization is returned.
+  </Step>
+</Steps>
+
+<Tip>
+  Supabase Auth configuration — including enabling TOTP and setting redirect URLs — is managed in your Supabase project dashboard under **Settings → Authentication**. See the [Supabase Auth documentation](https://supabase.com/docs/guides/auth) for details.
+</Tip>
+
+## User roles
+
+Every user in an organization has one of four roles. Roles control what actions a user can perform.
+
+| Role | Invoices & payments | Clients & projects | Expenses & reports | Settings & team | Delete organization |
+|---|---|---|---|---|---|
+| Owner | Full access | Full access | Full access | Full access | Yes |
+| Admin | Full access | Full access | Full access | Full access | No |
+| Accountant | Full access | Full access | Full access | No | No |
+| Viewer | Read only | Read only | Read only | No | No |
+
+**Owner** — The founding member of the organization. Has complete access to all features and is the only role permitted to delete the organization. There is one owner per organization.
+
+**Admin** — Full access to all features and settings, including team management, security configuration, and gateway credentials. Cannot delete the organization.
+
+**Accountant** — Can create, edit, and manage all financial data: invoices, payments, expenses, credit notes, and reports. Cannot manage team members, change security settings, or configure payment gateways.
+
+**Viewer** — Read-only access across the application. Cannot create or modify any records. Useful for giving a stakeholder visibility without write access.
+
+## Team invitations
+
+Team members are added by invitation. An owner or admin sends an invitation to an email address and assigns a role. The system creates a time-limited, token-based invitation link and emails it to the recipient.
+
+When the invitee clicks the link:
+
+1. They are prompted to create a Supabase Auth account (or sign in if they already have one).
+2. The application validates the invitation token and checks it has not expired or been revoked.
+3. Their user record is created in the database and linked to the inviting organization with the assigned role.
+4. Their Supabase `app_metadata.organizationId` is set to bind them to the organization.
+
+Invitation statuses:
+
+| Status | Meaning |
+|---|---|
+| Pending | Sent but not yet accepted. |
+| Accepted | The invitee has signed up and joined the organization. |
+| Expired | The invitation link passed its expiry date before being used. |
+| Revoked | An admin manually cancelled the invitation before it was accepted. |
+
+Pending invitations can be revoked at any time from **Settings → Team**.
+
+## Organization onboarding
+
+When a new user signs up without an existing invitation, they are directed through the onboarding flow at `/onboarding`. This guided setup:
+
+1. Creates a new `Organization` record in the database.
+2. Creates the user's `User` record with the `OWNER` role.
+3. Writes the new `organizationId` into the user's Supabase `app_metadata`.
+4. Prompts the user to set their organization name, address, and invoice prefix.
+
+After completing onboarding, the user lands in the main dashboard with their organization fully set up.
+
+## Audit log
+
+Every data-mutating operation in the application writes an entry to the audit log. The audit log is scoped to the organization and accessible from **Settings → Audit Log**.
+
+Each entry records:
+
+| Field | Description |
+|---|---|
+| Action | `CREATED`, `UPDATED`, `DELETED`, `STATUS_CHANGED`, `PAYMENT_RECEIVED`, `SENT`, or `VIEWED`. |
+| Entity type | The type of record affected (e.g., `Invoice`, `Client`, `Payment`). |
+| Entity ID | The ID of the affected record. |
+| Entity label | A human-readable label (e.g., invoice number, client name). |
+| Diff | A JSON snapshot of what changed (for update operations). |
+| User | The team member who performed the action. |
+| Timestamp | When the action occurred. |
+
+The audit log is append-only and cannot be edited or deleted.
+
+## Global search
+
+The command palette (opened with `Cmd+K` on macOS or `Ctrl+K` on Windows/Linux) provides full-text search across the current organization's data. The following record types are searchable:
+
+- Invoices
+- Clients
+- Projects
+- Expenses
+- Support tickets
+
+All search results are strictly scoped to the authenticated organization. No results from other organizations are ever returned or exposed.
+
+## File storage isolation
+
+File attachments (invoice attachments, expense receipts, organization logos, proposal files) are stored in Supabase Storage. Each organization's files are stored under paths that include the organization ID, and access is controlled by Supabase Storage RLS policies that enforce organization-level isolation.
+
+Required Supabase Storage buckets:
+
+| Bucket | Contents |
+|---|---|
+| `invoices` | Invoice file attachments |
+| `expenses` | Expense receipts |
+| `logos` | Organization logos |
+| `proposals` | Proposal file uploads |

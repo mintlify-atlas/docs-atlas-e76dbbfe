@@ -1,97 +1,80 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "LWD Invoices"
+description: "Professional invoicing, time tracking, and client management for freelancers and small businesses."
 ---
 
-## Setting up
+LWD Invoices is a full-stack, self-hostable invoicing application built for freelancers, consultants, and small businesses. Create professional invoices, track time, manage projects, and accept online payments — all from one place.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Set up your organization and send your first invoice in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Self-Hosting Guide" icon="server" href="/self-hosting">
+    Deploy LWD Invoices on your own infrastructure with step-by-step instructions.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Core Features" icon="star" href="/features/invoicing">
+    Explore invoicing, time tracking, client portal, expenses, and more.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Integrate with LWD Invoices using the REST API v1.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What you can do
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice-dollar" href="/features/invoicing">
+    Create detailed invoices with line items, taxes, discounts, and partial payments. Generate PDFs and deliver by email.
+  </Card>
+  <Card title="Client Portal" icon="users" href="/features/client-portal">
+    Share a branded portal link so clients can view invoices, approve estimates, and pay online — no account required.
+  </Card>
+  <Card title="Projects & Time Tracking" icon="clock" href="/features/projects-time-tracking">
+    Manage projects with milestones and tasks. Log time entries and bill tracked hours directly to invoices.
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/integrations/payments">
+    Accept payments via Stripe or PayPal. Supports multiple currencies and automatic webhook-based status updates.
+  </Card>
+  <Card title="Expenses" icon="receipt" href="/features/expenses">
+    Track business expenses by category and supplier. Attach receipts and bill reimbursable expenses to invoices.
+  </Card>
+  <Card title="Reports" icon="chart-bar" href="/features/reports">
+    Generate revenue reports, P&L statements, tax liability summaries, and year-end export packs for accountants.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Get started
 
-## Need inspiration?
+<Steps>
+  <Step title="Clone and install">
+    Clone the repository and install dependencies.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    ```bash
+    git clone https://github.com/mlaplante/LWD-Invoices.git
+    cd LWD-Invoices
+    npm install
+    ```
+  </Step>
+  <Step title="Configure environment">
+    Copy the example environment file and fill in your credentials for the database, Supabase, and email.
+
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+  <Step title="Run migrations and start">
+    Apply the database schema and launch the development server.
+
+    ```bash
+    npx prisma migrate dev
+    npm run dev
+    ```
+  </Step>
+  <Step title="Complete onboarding">
+    Open [http://localhost:3000](http://localhost:3000), create your account, and follow the guided onboarding flow to set up your organization.
+  </Step>
+</Steps>
+
+<Tip>
+  For production deployments, see the [Self-Hosting Guide](/self-hosting) for full setup instructions including Supabase, email, and payment gateway configuration.
+</Tip>

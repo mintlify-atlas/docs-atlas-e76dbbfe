@@ -1,0 +1,213 @@
+---
+title: 'Contributing guidelines'
+description: 'How to contribute to LWD Invoices — from forking the repo to opening a pull request.'
+keywords: ['contributing', 'open source', 'pull request', 'development', 'guidelines']
+---
+
+LWD Invoices is open source under the [MIT License](https://opensource.org/licenses/MIT). Contributions are welcome — whether you're fixing a bug, adding a feature, or improving the documentation. This guide covers everything you need to get started.
+
+## Contribution workflow
+
+<Steps>
+  <Step title="Fork the repository on GitHub">
+    Visit [github.com/mlaplante/LWD-Invoices](https://github.com/mlaplante/LWD-Invoices) and click **Fork** to create a copy under your own account.
+  </Step>
+
+  <Step title="Clone your fork">
+    ```bash
+    git clone https://github.com/YOUR-USERNAME/LWD-Invoices.git
+    cd LWD-Invoices
+    ```
+  </Step>
+
+  <Step title="Create a feature branch">
+    Always work on a dedicated branch — never commit directly to `main`.
+
+    ```bash
+    git checkout -b feature/your-feature-name
+    # or for bug fixes:
+    git checkout -b fix/your-bug-fix-name
+    ```
+  </Step>
+
+  <Step title="Set up your development environment">
+    Install dependencies, copy the environment file, run migrations, and start the dev server:
+
+    ```bash
+    npm install
+    cp .env.example .env
+    npx prisma migrate dev
+    npm run dev
+    ```
+
+    Fill in the required environment variables in `.env` before running the dev server. See the [environment variables reference](/configuration/environment-variables) for the full list.
+  </Step>
+
+  <Step title="Make changes following the code style guidelines">
+    Write TypeScript with strict mode enabled. Follow the conventions described in the [code style](#code-style-guidelines) section below. Add or update tests alongside your changes.
+  </Step>
+
+  <Step title="Run the tests">
+    All tests must pass before you open a pull request:
+
+    ```bash
+    npm run test:run
+    ```
+
+    To run with coverage:
+
+    ```bash
+    npm run test:coverage
+    ```
+  </Step>
+
+  <Step title="Build to verify">
+    Confirm the production build succeeds without errors:
+
+    ```bash
+    npm run build
+    ```
+  </Step>
+
+  <Step title="Commit using conventional commits format">
+    Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages:
+
+    ```bash
+    git commit -m "feat: add recurring expense support to reports"
+    git commit -m "fix: resolve PayPal webhook idempotency issue"
+    git commit -m "docs: update environment variable reference"
+    git commit -m "test: add coverage for invoice PDF generation"
+    ```
+
+    See [commit message format](#commit-message-format) below for the full list of types.
+  </Step>
+
+  <Step title="Push and open a pull request">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+
+    Open a pull request on GitHub with a clear title, a description of what changed and why, and a reference to any related issues (e.g., `Fixes #123`). Include screenshots for UI changes.
+  </Step>
+</Steps>
+
+## Commit message format
+
+LWD Invoices uses [Conventional Commits](https://www.conventionalcommits.org/) to keep the git history readable and to support automated release notes.
+
+| Type | When to use |
+|---|---|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation changes only |
+| `style` | Code style changes (formatting, missing semicolons, etc.) |
+| `refactor` | Code refactoring without a feature or fix |
+| `test` | Adding or updating tests |
+| `chore` | Maintenance tasks (dependency updates, build scripts, etc.) |
+
+**Examples:**
+
+```bash
+git commit -m "feat: add late fee waiver support to invoice detail"
+git commit -m "fix: correct compound tax calculation on credit notes"
+git commit -m "refactor: extract gateway encryption into shared utility"
+git commit -m "chore: upgrade Prisma to 7.6"
+```
+
+## Code style guidelines
+
+### TypeScript
+
+- Use TypeScript for all new code.
+- Enable strict mode — this is already configured in `tsconfig.json`.
+- Avoid the `any` type; prefer explicit types or generics.
+- Prefer interfaces over type aliases for object shapes.
+
+### React components
+
+- Use functional components with hooks.
+- Keep components small and focused on a single responsibility.
+- Extract reusable logic into custom hooks in `src/hooks/`.
+- Use meaningful prop names.
+
+### API design
+
+- Use **tRPC procedures** for all internal API calls from the dashboard.
+- Use **REST conventions** for the external REST API (`src/app/api/v1/`).
+- Validate all inputs with [Zod](https://zod.dev/) schemas — never trust unvalidated user input.
+- Return appropriate HTTP status codes from REST endpoints.
+
+### Validation
+
+Every tRPC procedure and REST endpoint must validate its input with a Zod schema before touching the database. This is especially important for org-scoped queries where a missing or incorrect `organizationId` would be a security issue.
+
+## Database changes
+
+When your change requires a schema modification:
+
+1. Create a migration with a descriptive name:
+   ```bash
+   npx prisma migrate dev --name your-migration-name
+   ```
+2. Edit `prisma/schema.prisma` with your changes.
+3. Regenerate the Prisma client:
+   ```bash
+   npx prisma generate
+   ```
+4. Test the migration on your development database before opening a PR.
+5. Document any breaking changes clearly in your PR description.
+
+<Warning>
+Keep migrations reversible where possible. If a migration is destructive (drops a column or table), note this explicitly in the PR description so reviewers can plan accordingly.
+</Warning>
+
+## Testing requirements
+
+- Write **unit tests** for services and utility functions in `src/server/services/` and `src/lib/`.
+- Write **integration tests** for API endpoints.
+- Aim for **80%+ code coverage** on critical paths (invoice calculations, payment processing, multi-tenancy enforcement).
+- Test edge cases and error handling — not just the happy path.
+
+Tests use [Vitest](https://vitest.dev/) and run in a Node environment. The test setup file is at `src/test/setup.ts`.
+
+```bash
+npm run test          # Run tests in watch mode
+npm run test:run      # Run tests once (CI-friendly)
+npm run test:coverage # Run tests with a V8 coverage report
+```
+
+## Pull request process
+
+1. **Ensure all tests pass** and there are no build or lint errors.
+2. **Update documentation** for any user-facing changes.
+3. **Add tests** for new functionality.
+4. **Request a review** from a maintainer.
+5. **Address feedback** promptly and respectfully.
+6. **Squash commits** if asked before merging.
+
+## Available npm scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start the Next.js development server |
+| `npm run build` | Build for production (runs `prisma migrate deploy` first) |
+| `npm run test` | Run tests in watch mode |
+| `npm run test:run` | Run tests once (use in CI) |
+| `npm run test:coverage` | Run tests with a V8 coverage report |
+| `npm run db:migrate` | Run pending database migrations (`prisma migrate deploy`) |
+| `npm run db:seed` | Seed the database with sample data |
+| `npm run db:studio` | Open Prisma Studio to browse the database |
+
+## Getting help
+
+- **Bug reports** — Open an issue on [GitHub Issues](https://github.com/mlaplante/LWD-Invoices/issues) with steps to reproduce.
+- **Questions** — Start a thread in [GitHub Discussions](https://github.com/mlaplante/LWD-Invoices/discussions).
+- **Feature requests** — Open an issue with a detailed description of the use case.
+
+<Note>
+Please report security vulnerabilities **privately** to the maintainers rather than opening a public issue. Do not commit sensitive data such as API keys, secrets, or credentials to the repository.
+</Note>
+
+## License
+
+By contributing to LWD Invoices, you agree that your contributions will be licensed under the [MIT License](https://opensource.org/licenses/MIT).

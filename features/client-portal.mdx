@@ -1,0 +1,152 @@
+---
+title: "Client portal"
+description: "Give clients a branded, password-optional portal to view invoices, pay online, approve estimates, track projects, and communicate — no account required."
+---
+
+<CardGroup cols={2}>
+  <Card title="No account required" icon="link">
+    Clients access their portal via a unique token URL. There is no sign-up or login process unless you set an optional passphrase.
+  </Card>
+  <Card title="Online payments" icon="credit-card">
+    Clients can pay invoices and individual installments directly from the portal via Stripe or PayPal.
+  </Card>
+  <Card title="Estimate approval" icon="check-circle">
+    Clients can accept or reject estimates, and electronically sign proposals, without leaving the portal.
+  </Card>
+  <Card title="Project visibility" icon="eye">
+    Staff can share project progress and timesheets with clients on a per-project basis.
+  </Card>
+  <Card title="Custom branding" icon="palette">
+    Match the portal to your brand with a logo, accent color, custom font, tagline, and footer text.
+  </Card>
+  <Card title="Session tracking" icon="shield">
+    Each portal visit is recorded with IP address and user agent for security and compliance purposes.
+  </Card>
+</CardGroup>
+
+## How the portal works
+
+Every client in LWD Invoices has a unique `portalToken` that never changes. The portal is accessible at:
+
+```
+https://yourdomain.com/portal/<portalToken>
+```
+
+Share this URL with your client to give them access. No account, password, or invitation is required by default. You can optionally protect the portal with a passphrase (see [Passphrase protection](#passphrase-protection) below).
+
+Each invoice also has its own `portalToken`, so you can share a direct link to a specific invoice without exposing the full client dashboard.
+
+## Client dashboard
+
+When a client visits their portal URL, they land on their **client dashboard**, which shows:
+
+- A summary of their outstanding and overdue balance
+- A complete list of all their invoices with statuses, amounts, and due dates
+- Recent payment history
+- Active projects shared with them (if any)
+
+From the dashboard a client can click into any invoice to view details, make a payment, or leave a comment.
+
+## Viewing and paying invoices
+
+From any invoice in the portal, a client can:
+
+- View the full invoice with all line items, taxes, and discounts
+- See payment history for that invoice
+- Pay the invoice online (if the invoice status is `SENT`, `PARTIALLY_PAID`, or `OVERDUE`)
+- Pay a specific installment if the invoice has a partial payment schedule
+- Leave a public comment visible to both staff and client
+
+<Tabs>
+  <Tab title="Pay with Stripe">
+    If Stripe is configured for your organization, a **Pay with card** button appears on payable invoices. Clicking it redirects the client to a Stripe Checkout session. After a successful payment, Stripe sends a webhook that automatically marks the invoice as paid and sends a receipt email.
+  </Tab>
+  <Tab title="Pay with PayPal">
+    If PayPal is configured, a PayPal button is available on the invoice. The client completes payment through PayPal's standard flow. Webhook events update the invoice status automatically.
+  </Tab>
+</Tabs>
+
+<Note>
+Gateway surcharges, if configured, are added to the checkout amount automatically. Clients see the final amount including any processing fee before confirming payment.
+</Note>
+
+## Approving and signing estimates
+
+When you send an estimate or proposal, the client can review it in the portal and take one of two actions:
+
+<Steps>
+  <Step title="Review the estimate">
+    The client opens the portal link for the estimate and reads through the line items, pricing, and any attached proposal content.
+  </Step>
+  <Step title="Accept or reject">
+    The client clicks **Accept** or **Decline**. Accepting moves the estimate to `ACCEPTED` status; declining moves it to `REJECTED`. Your team is notified immediately.
+  </Step>
+  <Step title="Sign the proposal (if required)">
+    If the estimate has proposal content attached, the client can provide an e-signature. They enter their full name and email address, then draw or type their signature.
+
+    On submission:
+    - The estimate status is set to `ACCEPTED`
+    - The signature data is encrypted and stored
+    - A `SignatureAuditLog` entry is created with SHA-256 hashes of both the document content and the signature
+    - A notification and confirmation email are sent to your team
+  </Step>
+</Steps>
+
+Once signed, a proposal cannot be signed again. The audit log entry provides a tamper-evident record for compliance.
+
+## Project visibility
+
+Staff can expose project information to clients on a per-project basis using two toggle options:
+
+| Setting | What the client sees |
+|---|---|
+| Show project in portal | Project name, status, and due date on the client dashboard |
+| Show timesheet | All time entries logged against the project |
+
+These settings are independent — you can show a project without sharing the timesheet, or share both.
+
+Milestones and tasks also have individual visibility flags. Only milestones and tasks marked as viewable appear in the client's project view.
+
+## Passphrase protection
+
+By default, anyone with the portal URL can access it. To add a layer of security:
+
+1. Go to the client record and set a **portal passphrase**.
+2. The passphrase is hashed with bcrypt before storage — it is never stored in plain text.
+3. When the client visits their portal URL, they are prompted to enter the passphrase before a session is created.
+
+<Warning>
+If you set a passphrase, make sure to share it with your client securely. There is no password recovery flow — you would need to set a new passphrase if it is lost.
+</Warning>
+
+## Portal branding
+
+Customize the portal's appearance to match your brand under **Settings → Organization**:
+
+| Setting | Description |
+|---|---|
+| Logo | Your organization logo, displayed in the portal header |
+| Brand color | Primary accent color for buttons and highlights |
+| Brand font | Typography choice: Inter, Georgia, or system default |
+| Portal tagline | Short text shown below the organization name |
+| Footer text | Custom text displayed in the portal footer |
+| Hide "Powered by" | Removes the LWD Invoices attribution from the portal footer |
+
+## Invoice comments
+
+Both staff and clients can leave comments on an invoice:
+
+- **Client comments** are created through the portal and are always public (visible to both sides).
+- **Staff comments** can be marked as **private** — private comments are never shown in the portal.
+- When a client posts a comment, all admin users in your organization receive an in-app notification and an email alert.
+
+## Session tracking
+
+Each time a client creates a dashboard session (by visiting their portal URL), a `ClientPortalSession` record is created that stores:
+
+- The session token (hashed, time-limited)
+- The client's IP address
+- The client's browser user agent
+- The session expiry timestamp
+
+Sessions expire automatically. If a session token is expired, the client is redirected to log in again (or re-enter their passphrase if one is set).

@@ -1,0 +1,73 @@
+---
+title: "Authentication"
+description: "How to authenticate with the LWD Invoices REST API using Supabase session tokens."
+---
+
+The LWD Invoices REST API uses **Supabase session tokens** as Bearer tokens. Every request must include a valid token in the `Authorization` header. There are no long-lived API keys — tokens are tied to Supabase Auth sessions and expire according to your Supabase project's session settings.
+
+<Warning>
+  This API uses short-lived Supabase session tokens, not dedicated API keys. Tokens expire when the session ends or when Supabase rotates them. You must refresh the token using Supabase's client library before it expires if you need long-running access.
+</Warning>
+
+## Obtaining a token
+
+Sign in via Supabase Auth and extract the `access_token` from the session object. Using the Supabase JavaScript client:
+
+```javascript
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'your-password',
+})
+
+const accessToken = data.session.access_token
+```
+
+## Making authenticated requests
+
+Pass the access token as a Bearer token in the `Authorization` header of every API request:
+
+```
+Authorization: Bearer <your-access-token>
+```
+
+### Example request
+
+```bash
+curl https://invoices.example.com/api/v1/clients \
+  --header "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+## How authentication works server-side
+
+When the API receives a request, it:
+
+1. Reads the `Authorization` header and extracts the Bearer token.
+2. Checks the token against the in-memory rate limit (60 requests per token per minute).
+3. Validates the token by calling Supabase's admin `getUser` method.
+4. Reads `organizationId` from `user.app_metadata.organizationId`.
+5. Verifies the organization exists in the database.
+6. Scopes all subsequent query results to that organization.
+
+<Note>
+  All API responses are automatically scoped to the authenticated user's organization. You cannot access data belonging to other organizations.
+</Note>
+
+## Error responses
+
+| Status | Error message            | Cause                                                          |
+| ------ | ------------------------ | -------------------------------------------------------------- |
+| `401`  | `Unauthorized`           | `Authorization` header is missing or does not start with `Bearer ` |
+| `401`  | `Invalid token`          | The token was rejected by Supabase (expired or malformed)      |
+| `401`  | `No organization context` | The authenticated user has no `organizationId` in their app metadata |
+| `404`  | `Organization not found`  | The `organizationId` from the token does not match any organization in the database |
+| `429`  | `Too many requests`       | Rate limit exceeded — 60 requests per token per minute         |
+
+## Rate limiting
+
+The API uses a sliding-window rate limiter: **60 requests per token per minute**. The window is tracked in memory per token value. When the limit is exceeded, all further requests return `429 Too Many Requests` until enough time has passed for older requests to leave the window.
+
+To avoid hitting the limit, space out requests or implement exponential backoff when you receive a `429` response.

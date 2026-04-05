@@ -1,0 +1,224 @@
+---
+title: 'Environment variables'
+description: 'Configure LWD Invoices by setting environment variables before starting the application.'
+---
+
+LWD Invoices uses [`@t3-oss/env-nextjs`](https://env.t3.gg/) to validate all environment variables at build time. If a required variable is missing or malformed, the application will refuse to start and print a clear error message indicating which variable failed validation. This prevents silent misconfigurations from reaching production.
+
+To get started, copy the example file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+<Warning>
+  Never commit your `.env` file to version control. Add it to `.gitignore`. For production deployments, set environment variables through your hosting platform's secrets manager (e.g., Netlify → Site Settings → Environment Variables, or Vercel → Project Settings → Environment Variables).
+</Warning>
+
+## Required variables
+
+These variables must be set for the application to start.
+
+<ParamField path="DATABASE_URL" type="string" required>
+  PostgreSQL connection string. Supabase and Neon both provide this from their dashboard. Must be a valid URL.
+
+  ```bash
+  DATABASE_URL="postgresql://user:password@localhost:5432/lwd_invoices"
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_URL" type="string" required>
+  Your Supabase project URL. This is a public value exposed to the browser. Find it in your Supabase dashboard under **Settings → API → Project URL**.
+
+  ```bash
+  NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_ANON_KEY" type="string" required>
+  Supabase anonymous (public) key. This is safe to expose to the browser. Find it in **Settings → API → Project API keys → anon / public**.
+
+  ```bash
+  NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+  ```
+</ParamField>
+
+<ParamField path="SUPABASE_URL" type="string" required>
+  Supabase project URL used server-side. Set to the same value as `NEXT_PUBLIC_SUPABASE_URL`. This is kept separate so server-only code uses the validated server env object.
+
+  ```bash
+  SUPABASE_URL="https://your-project.supabase.co"
+  ```
+</ParamField>
+
+<ParamField path="SUPABASE_SERVICE_ROLE_KEY" type="string" required>
+  Supabase service role key used for admin operations such as creating users during onboarding and managing auth metadata. Find it in **Settings → API → Project API keys → service_role**.
+
+  <Warning>
+    The service role key bypasses Row Level Security. Never expose it to the browser or commit it to version control. Treat it like a database root password.
+  </Warning>
+</ParamField>
+
+<ParamField path="RESEND_API_KEY" type="string" required>
+  API key for [Resend](https://resend.com), used to send invoices, payment receipts, and payment reminders by email. Create a key in your Resend dashboard.
+
+  ```bash
+  RESEND_API_KEY="re_your-api-key"
+  ```
+</ParamField>
+
+<ParamField path="RESEND_FROM_EMAIL" type="string" required default="invoices@example.com">
+  The `From` address used on all outgoing emails. Must be a verified domain in your Resend account. Defaults to `invoices@example.com` if not set, which will fail delivery in production.
+
+  ```bash
+  RESEND_FROM_EMAIL="invoices@yourdomain.com"
+  ```
+</ParamField>
+
+<ParamField path="GATEWAY_ENCRYPTION_KEY" type="string" required>
+  A 64-character hex string used to encrypt payment gateway credentials (Stripe keys, PayPal secrets) at rest, per organization, using AES-256-GCM. Required in production; optional in development.
+
+  Generate a secure key with:
+
+  ```bash
+  openssl rand -hex 32
+  ```
+
+  <Warning>
+    Changing this key after gateway credentials have been saved will render all existing encrypted credentials unreadable. Store it securely and back it up — losing it means losing access to all configured payment gateways.
+  </Warning>
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_APP_URL" type="string" required default="http://localhost:3000">
+  The public URL of your deployed application. Used to generate client portal links, payment redirect URLs, and webhook callback addresses. Defaults to `http://localhost:3000` for local development.
+
+  ```bash
+  NEXT_PUBLIC_APP_URL="https://invoices.yourdomain.com"
+  ```
+</ParamField>
+
+## Optional variables
+
+These variables unlock specific features. The application runs without them, but the associated features will be unavailable.
+
+### Background jobs (Inngest)
+
+<ParamField path="INNGEST_SIGNING_KEY" type="string">
+  Inngest signing key, used to verify that incoming webhook requests from Inngest are authentic. Required for background jobs to run in production: recurring invoices, payment reminders, overdue notifications, late fees, and scheduled reports.
+
+  ```bash
+  INNGEST_SIGNING_KEY="your-inngest-signing-key"
+  ```
+</ParamField>
+
+<ParamField path="INNGEST_EVENT_KEY" type="string">
+  Inngest event key, used to send events to the Inngest platform to trigger background job execution.
+
+  ```bash
+  INNGEST_EVENT_KEY="your-inngest-event-key"
+  ```
+</ParamField>
+
+### Stripe payments
+
+<ParamField path="STRIPE_SECRET_KEY" type="string">
+  Stripe secret key for server-side API calls. Required if you want to accept Stripe payments through the client portal. Configure in your Stripe Dashboard under **Developers → API keys**.
+
+  ```bash
+  STRIPE_SECRET_KEY="sk_live_your-stripe-secret-key"
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" type="string">
+  Stripe publishable key, exposed to the browser to initialize Stripe.js in the client portal payment form.
+
+  ```bash
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_your-stripe-publishable-key"
+  ```
+</ParamField>
+
+<ParamField path="STRIPE_WEBHOOK_SECRET" type="string">
+  Signing secret for Stripe webhook events received at `/api/webhooks/stripe`. Ensures that payment status updates come from Stripe and not a third party.
+
+  ```bash
+  STRIPE_WEBHOOK_SECRET="whsec_your-stripe-webhook-secret"
+  ```
+</ParamField>
+
+### PayPal payments
+
+<ParamField path="PAYPAL_CLIENT_ID" type="string">
+  PayPal REST API client ID. Required for accepting PayPal payments in the client portal.
+
+  ```bash
+  PAYPAL_CLIENT_ID="your-paypal-client-id"
+  ```
+</ParamField>
+
+<ParamField path="PAYPAL_CLIENT_SECRET" type="string">
+  PayPal REST API client secret, used server-side to authenticate PayPal API calls and verify webhook signatures.
+
+  ```bash
+  PAYPAL_CLIENT_SECRET="your-paypal-client-secret"
+  ```
+</ParamField>
+
+### AI features
+
+<ParamField path="ANTHROPIC_API_KEY" type="string">
+  Anthropic API key for AI-powered features such as expense receipt OCR. Without this key, AI features are disabled but all other functionality works normally.
+
+  ```bash
+  ANTHROPIC_API_KEY="sk-ant-your-anthropic-api-key"
+  ```
+</ParamField>
+
+## Example `.env` file
+
+```bash
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/lwd_invoices"
+
+# Supabase (Authentication & File Storage)
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+# Email (Resend)
+RESEND_API_KEY="re_your-api-key"
+RESEND_FROM_EMAIL="invoices@yourdomain.com"
+
+# Application
+NEXT_PUBLIC_APP_URL="https://invoices.yourdomain.com"
+
+# Security
+# Generate with: openssl rand -hex 32
+GATEWAY_ENCRYPTION_KEY="your-64-character-hex-key-here"
+
+# Background jobs (Inngest) — optional but recommended
+INNGEST_SIGNING_KEY="your-inngest-signing-key"
+INNGEST_EVENT_KEY="your-inngest-event-key"
+
+# Stripe — optional
+STRIPE_SECRET_KEY="sk_live_your-stripe-secret-key"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_your-stripe-publishable-key"
+STRIPE_WEBHOOK_SECRET="whsec_your-stripe-webhook-secret"
+
+# PayPal — optional
+PAYPAL_CLIENT_ID="your-paypal-client-id"
+PAYPAL_CLIENT_SECRET="your-paypal-client-secret"
+
+# AI features — optional
+ANTHROPIC_API_KEY="sk-ant-your-anthropic-api-key"
+```
+
+## Skipping validation
+
+During CI builds or Docker image builds where environment variables are injected at runtime, you can skip validation:
+
+```bash
+SKIP_ENV_VALIDATION=true npm run build
+```
+
+Do not set this in production runtime environments — validation exists to catch misconfigurations before they cause failures.

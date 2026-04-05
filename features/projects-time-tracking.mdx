@@ -1,0 +1,166 @@
+---
+title: "Projects & time tracking"
+description: "Manage client projects, track time against tasks, run built-in timers, and bill logged hours directly to invoices."
+---
+
+<CardGroup cols={2}>
+  <Card title="Projects and milestones" icon="folder-open">
+    Organize work into projects with milestones, custom task statuses, and a full task board.
+  </Card>
+  <Card title="Time entries and timesheets" icon="clock">
+    Log hours manually or use the built-in per-task timer. Configurable rounding intervals keep entries consistent.
+  </Card>
+  <Card title="Billing tracked time" icon="file-invoice-dollar">
+    Select unbilled time entries and add them to an invoice as `TIME_ENTRY` line items in one step.
+  </Card>
+  <Card title="Project templates" icon="copy">
+    Save reusable task structures as templates and apply them when creating new projects.
+  </Card>
+  <Card title="Client visibility controls" icon="eye">
+    Choose which projects, timesheets, and tasks your client can see in their portal.
+  </Card>
+  <Card title="Project discussions" icon="comments">
+    Threaded message threads per project keep staff and client communication in context.
+  </Card>
+</CardGroup>
+
+## Creating a project
+
+<Steps>
+  <Step title="Open the project form">
+    Go to **Projects** in the sidebar and click **New project**. You can optionally apply a saved **project template** to pre-populate the task list.
+  </Step>
+  <Step title="Set the basics">
+    Give the project a name, select a client, and choose the billing currency. Add an optional description and due date.
+  </Step>
+  <Step title="Choose a billing model">
+    Toggle **Flat rate** to bill the project as a single fixed price. Leave it off for an **hourly** model where the project rate (or individual task rates) drive time-entry billing.
+
+    Enter **projected hours** as a budget reference — the project summary shows actual hours logged against this figure.
+  </Step>
+  <Step title="Configure portal visibility">
+    Enable **Show in client portal** to let the client see project progress from their portal dashboard. Separately enable **Show timesheet** to share the time entry log with the client.
+  </Step>
+  <Step title="Save">
+    Click **Create project**. You can add milestones, tasks, and team assignments after saving.
+  </Step>
+</Steps>
+
+## Project statuses
+
+| Status | Meaning |
+|---|---|
+| `ACTIVE` | Work is ongoing |
+| `COMPLETED` | Delivery finished; project is closed |
+| `ARCHIVED` | Hidden from default views; data retained |
+
+<Note>
+Projects with billed time entries cannot be deleted. Archive them instead to keep the billing history intact.
+</Note>
+
+## Milestones
+
+Milestones mark key delivery points within a project. Each milestone has:
+
+- A name and optional description
+- A **target date**
+- A **color** for visual identification on the task board
+- A **sort order** to control display sequence
+- A **portal visibility** toggle (independent of the project-level toggle)
+
+Tasks can be assigned to a milestone to group them under that delivery phase.
+
+## Tasks and subtasks
+
+The task board is the primary workspace for a project. Each task supports:
+
+- **Name and notes** — describe the work
+- **Custom task status** — choose from your organization's configured statuses (each with its own background and font color)
+- **Milestone assignment** — link the task to a milestone
+- **Due date** — track individual task deadlines
+- **Assigned user** — assign the task to a specific team member
+- **Projected hours and rate** — override the project-level rate for this task
+- **Flat rate toggle** — mark a task as fixed-price regardless of logged hours
+- **Subtasks** — nest child tasks under any parent task for granular breakdowns
+
+Tasks and their subtasks are ordered by `sortOrder` and can be reorranged on the board.
+
+### Custom task statuses
+
+Task statuses are configured globally for your organization under **Settings → Task statuses**. Each status has a title, background color, and font color. You can create as many statuses as needed (e.g., Backlog, In progress, In review, Done).
+
+## Logging time entries
+
+### Manual entry
+
+On any task, click **Log time** to open the time entry form:
+
+- **Date** — defaults to today
+- **Duration in minutes** — enter the number of minutes worked
+- **Start time / End time** — optional clock times for the record
+- **Note** — an optional description of the work done
+
+If your organization has a **task time interval** configured (e.g., 15 minutes), all durations are automatically rounded up to the nearest interval on save.
+
+### Built-in timers
+
+Each task has a dedicated timer you can start, pause, and stop without leaving the task view.
+
+<Steps>
+  <Step title="Start the timer">
+    Click the play button on any task. The timer begins counting from zero and continues while you work.
+  </Step>
+  <Step title="Pause if needed">
+    Click pause to temporarily stop counting. Pause intervals are stored so the elapsed time is accurate.
+  </Step>
+  <Step title="Stop and save">
+    Click stop when finished. The elapsed time is converted to minutes and saved as a time entry linked to that task, with the rounding interval applied.
+  </Step>
+</Steps>
+
+Only one active timer is stored per task. Starting a new timer on a task replaces any previous timer state.
+
+## Timesheets
+
+The **Timesheet** view gives a date-range view of all time entries across projects and tasks. Filter by:
+
+- Project
+- Team member
+- Date range
+- Unbilled entries only
+
+From the timesheet you can edit or delete time entries. Billed entries (those already added to an invoice) are protected from deletion.
+
+## Billing time to an invoice
+
+<Steps>
+  <Step title="Open an existing invoice">
+    Go to the invoice you want to add time to. The invoice must be in `DRAFT` or `SENT` status.
+  </Step>
+  <Step title="Add time entries">
+    Click **Add from time entries** and select the unbilled time entries you want to include. You can filter by project, date range, or task.
+  </Step>
+  <Step title="Review and save">
+    Selected entries are added as `TIME_ENTRY` line items. The item name comes from the task name, the quantity is the hours (minutes ÷ 60), and the rate is pulled from the task rate or project rate. Invoice totals are recalculated automatically.
+  </Step>
+</Steps>
+
+Once a time entry is added to an invoice it is marked as billed and cannot be added to another invoice or deleted.
+
+## Project templates
+
+Save any task structure as a template to reuse it on future projects:
+
+1. Go to **Settings → Project templates** and create a new template.
+2. Add tasks with names, notes, sort orders, projected hours, and rates. Subtask relationships are preserved using parent sort order references.
+3. When creating a project, select the template from the **Apply template** dropdown. All template tasks are created on the new project automatically.
+
+## Project discussions
+
+Each project has a dedicated **Discussions** tab for threaded conversations between your team and the client.
+
+- Staff create discussion threads with a subject and message body.
+- Clients can reply from the client portal (if the project is marked as viewable).
+- Both sides can post replies, and the full thread is preserved chronologically.
+
+Discussions keep project-related communication in one place rather than scattered across email.

@@ -1,80 +1,190 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick start'
+description: 'Get a local instance of LWD Invoices running and send your first invoice in minutes.'
+keywords: ['quickstart', 'local development', 'setup', 'installation']
 ---
 
-## Get started in three steps
+This guide takes you from zero to a running local instance of LWD Invoices. By the end you will have the development server running, an organization set up, and your first invoice sent.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have the following:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+- **Node.js 22+** — [nodejs.org](https://nodejs.org)
+- **PostgreSQL database** — Supabase or Neon are recommended for their free tiers; a local PostgreSQL 14+ installation also works
+- **Supabase account** — Required for authentication and file storage ([supabase.com](https://supabase.com))
+- **Resend account** — Required for sending emails ([resend.com](https://resend.com))
 
-### Step 2: Deploy your changes
+<Steps>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Step title="Clone the repository and install dependencies">
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+```bash
+git clone https://github.com/mlaplante/LWD-Invoices.git
+cd LWD-Invoices
+npm install
+```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+The `postinstall` script runs `prisma generate` automatically after `npm install` completes.
 
-### Step 3: Go live
+</Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<Step title="Configure environment variables">
+
+Copy the example environment file and open it in your editor:
+
+```bash
+cp .env.example .env
+```
+
+Fill in the required variables:
+
+```bash
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/lwd_invoices"
+
+# Supabase (Authentication & File Storage)
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+# Email (Resend)
+RESEND_API_KEY="re_your-api-key"
+RESEND_FROM_EMAIL="invoices@yourdomain.com"
+
+# Application
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# Security — see warning below
+GATEWAY_ENCRYPTION_KEY="your-64-character-hex-key"
+```
+
+<Warning>
+  `GATEWAY_ENCRYPTION_KEY` must be a 64-character hex string. Generate one with:
+
+  ```bash
+  openssl rand -hex 32
+  ```
+
+  Keep this value secret and back it up. Losing it means losing access to all stored payment gateway credentials.
+</Warning>
+
+**Finding your Supabase keys:**
+
+1. Go to your Supabase project → **Settings** → **API**.
+2. Copy the **Project URL** — use it for both `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL`.
+3. Copy the **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+4. Copy the **service_role key** → `SUPABASE_SERVICE_ROLE_KEY`. Keep this secret and never expose it client-side.
+
+</Step>
+
+<Step title="Run database migrations">
+
+Apply the Prisma schema to your database:
+
+```bash
+npx prisma migrate dev
+```
+
+This creates all required tables and relationships. For a local PostgreSQL instance, make sure the database named in `DATABASE_URL` exists before running this command.
+
+<Tip>
+  To populate the database with sample data for development, run `npm run db:seed` after migrations complete.
+</Tip>
+
+</Step>
+
+<Step title="Start the development server">
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm dev
+```
+
+```bash yarn
+yarn dev
+```
+
+</CodeGroup>
+
+The server starts at [http://localhost:3000](http://localhost:3000).
+
+</Step>
+
+<Step title="Complete onboarding">
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+1. Sign up for a new account using your email address.
+2. The onboarding flow guides you through creating your first organization.
+3. Add your organization name, address, and logo.
+4. Configure your default currency and tax rates.
+
+Your organization ID is automatically stored in your Supabase user metadata (`app_metadata.organizationId`) during this step. All subsequent data is scoped to this organization.
+
+</Step>
+
+<Step title="Create a client and send your first invoice">
+
+Once onboarding is complete:
+
+1. **Create a client** — Go to **Clients** → **New client**. Enter the client's name, email, and billing address.
+2. **Create an invoice** — Go to **Invoices** → **New invoice**. Select the client, add line items with descriptions and amounts, and apply any discounts or taxes.
+3. **Send the invoice** — Click **Send**. The client receives an email with a link to their portal where they can view the invoice and pay online.
+
+<Note>
+  Payment gateways (Stripe, PayPal) are optional for local development. You can create and send invoices without them — clients can still record payments via bank transfer, cash, or check.
+</Note>
+
+</Step>
+
+</Steps>
+
+## Available scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build for production (runs `prisma migrate deploy` first) |
+| `npm run test` | Run tests in watch mode |
+| `npm run test:run` | Run tests once |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run db:migrate` | Run pending database migrations |
+| `npm run db:seed` | Seed the database with sample data |
+| `npm run db:studio` | Open Prisma Studio to browse the database |
+
+## Optional configuration
+
+The following variables are not required to run the app locally but enable additional features:
+
+| Variable | Feature |
+|---|---|
+| `INNGEST_SIGNING_KEY` + `INNGEST_EVENT_KEY` | Background jobs (recurring invoices, payment reminders, overdue notifications) |
+| `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` + `STRIPE_WEBHOOK_SECRET` | Stripe online payments |
+| `PAYPAL_CLIENT_ID` + `PAYPAL_CLIENT_SECRET` | PayPal online payments |
+| `ANTHROPIC_API_KEY` | AI-powered features |
+
+For local development of background jobs, run the Inngest dev server in a separate terminal:
+
+```bash
+npx inngest-cli@latest dev
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Ready to deploy to production? The self-hosting guide covers every service you need to configure.
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Self-hosting" icon="server" href="/self-hosting">
+    Full production deployment guide: database, auth, storage, email, payments, background jobs, and platform options.
+  </Card>
+  <Card title="Environment variables" icon="key" href="/configuration/environment-variables">
+    Complete reference for all environment variables with descriptions and example values.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

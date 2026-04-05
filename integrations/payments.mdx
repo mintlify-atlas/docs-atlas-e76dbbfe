@@ -1,0 +1,176 @@
+---
+title: "Payment gateways"
+description: "Accept online payments via Stripe or PayPal, or record manual payments. Gateway credentials are encrypted per organization."
+keywords: ["stripe", "paypal", "payments", "gateway", "bank transfer", "surcharge", "retainer"]
+---
+
+LWD Invoices supports two online payment gateways — Stripe and PayPal — and four manual payment methods: bank transfer, cash, check, and money order. Clients pay directly from the client portal; no account is required on their end.
+
+Each gateway is configured and enabled independently per organization. Credentials are encrypted at rest using AES-256-GCM before being stored in the database.
+
+## How gateway credentials are stored
+
+Every organization manages its own gateway configuration. When you save Stripe or PayPal credentials in **Settings → Gateways**, the app encrypts the full configuration object with AES-256-GCM using the server-side `GATEWAY_ENCRYPTION_KEY`. Only a non-sensitive subset (e.g., the Stripe publishable key) is ever returned to the browser — secret keys and webhook secrets are never exposed to the client.
+
+<Warning>
+  `GATEWAY_ENCRYPTION_KEY` must be a 64-character hex string (32 bytes). If this key is lost or rotated without re-encrypting stored configs, gateway credentials will become unreadable and payments will stop working. Generate it once and keep it secret:
+
+  ```bash
+  openssl rand -hex 32
+  ```
+</Warning>
+
+You can set a custom **label** for each gateway (e.g., "Credit card via Stripe") and configure a **surcharge percentage** (0–100%) that is added to the invoice total when the client pays via that method.
+
+## Manual payment methods
+
+The following methods do not require any third-party credentials. Enable them in **Settings → Gateways** and optionally add payment instructions (e.g., bank account details) that will be shown to the client in the portal.
+
+| Method | `GatewayType` value |
+|---|---|
+| Bank transfer | `BANK_TRANSFER` |
+| Cash | `CASH` |
+| Check | `CHECK` |
+| Money order | `MONEY_ORDER` |
+
+Manual payments are recorded by you (the operator) inside the invoice — they are not processed automatically.
+
+## Online gateway setup
+
+<Tabs>
+  <Tab title="Stripe">
+    ### Required environment variables
+
+    ```bash .env
+    STRIPE_SECRET_KEY="sk_live_..."
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
+    STRIPE_WEBHOOK_SECRET="whsec_..."
+    ```
+
+    ### Setup steps
+
+    <Steps>
+      <Step title="Create a Stripe account">
+        Sign up at [stripe.com](https://stripe.com) and complete account verification.
+      </Step>
+      <Step title="Get your API keys">
+        In the Stripe dashboard, go to **Developers → API keys**. Copy your **secret key** and **publishable key** and set them as `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+      </Step>
+      <Step title="Configure the webhook endpoint">
+        In the Stripe dashboard, go to **Developers → Webhooks → Add endpoint**.
+
+        Set the endpoint URL to:
+        ```
+        https://yourdomain.com/api/webhooks/stripe
+        ```
+
+        Select the event type **`checkout.session.completed`**.
+
+        Copy the **signing secret** and set it as `STRIPE_WEBHOOK_SECRET`.
+      </Step>
+      <Step title="Save credentials in organization settings">
+        In LWD Invoices, go to **Settings → Gateways → Stripe**. Enter your secret key, publishable key, and webhook secret. Toggle **Enabled** on.
+      </Step>
+    </Steps>
+
+    ### Payment flow
+
+    1. Client opens the invoice in the portal and clicks **Pay with Stripe**.
+    2. The app creates a Stripe Checkout session containing the invoice ID and organization ID in the session metadata.
+    3. The client completes payment on the hosted Stripe Checkout page.
+    4. Stripe sends a `checkout.session.completed` event to `POST /api/webhooks/stripe`.
+    5. The webhook verifies the signature using the organization's `webhookSecret`, then marks the invoice as `PAID` (or `PARTIALLY_PAID` for installment invoices) and sends a payment receipt email.
+
+    <Note>
+      Stripe webhook processing is idempotent. If Stripe retries an event, the handler detects the already-processed event ID and returns `200` without re-applying the payment.
+    </Note>
+  </Tab>
+  <Tab title="PayPal">
+    ### Required environment variables
+
+    ```bash .env
+    PAYPAL_CLIENT_ID="..."
+    PAYPAL_CLIENT_SECRET="..."
+    ```
+
+    ### Setup steps
+
+    <Steps>
+      <Step title="Create a PayPal developer account">
+        Sign up at [developer.paypal.com](https://developer.paypal.com).
+      </Step>
+      <Step title="Create a REST API app">
+        In the PayPal developer dashboard, go to **My Apps & Credentials → Create App**. Copy the **client ID** and **secret** and set them as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
+      </Step>
+      <Step title="Configure the webhook endpoint">
+        In the PayPal developer dashboard, add a webhook pointing to:
+        ```
+        https://yourdomain.com/api/webhooks/paypal
+        ```
+      </Step>
+      <Step title="Save credentials in organization settings">
+        In LWD Invoices, go to **Settings → Gateways → PayPal**. Enter your client ID and secret. Toggle **Enabled** on.
+      </Step>
+    </Steps>
+
+    ### Payment flow
+
+    The PayPal payment flow mirrors Stripe: the client pays from the portal, PayPal sends a webhook event to `POST /api/webhooks/paypal`, and the invoice status is updated automatically.
+  </Tab>
+</Tabs>
+
+## Payment recording
+
+### Full payments
+
+When a payment is received via Stripe or PayPal, the app records a `Payment` entry with:
+
+- `amount` — invoice total minus any previous payments
+- `surchargeAmount` — difference between the charged amount and the invoice total (if a surcharge applies)
+- `transactionId` — Stripe payment intent ID or PayPal transaction ID
+- `method` — `"stripe"` or `"paypal"`
+
+### Partial payments (installments)
+
+An invoice can have multiple `PartialPayment` records, each with its own `amount`, `dueDate`, and `isPaid` flag. When a client pays an installment via Stripe or PayPal, the webhook marks that specific installment as paid. The invoice status becomes `PARTIALLY_PAID` until all installments are settled, then moves to `PAID`.
+
+You can also record installment payments manually — set `paymentMethod` and `transactionId` directly on the partial payment record.
+
+### Multi-currency
+
+Each invoice carries an `exchangeRate` and a `currencyId`. The currency symbol and its position (before or after the amount) are configured per currency in **Settings → Currencies**.
+
+## Retainers and deposits
+
+Clients can hold a retainer balance with your organization. Retainer transactions are one of three types:
+
+| Type | Description |
+|---|---|
+| `deposit` | Client pays money into their retainer balance |
+| `drawdown` | Retainer balance is applied against an invoice |
+| `refund` | Excess retainer balance is returned to the client |
+
+The `retainerApplied` field on each invoice records how much of the invoice total was covered by a retainer drawdown.
+
+## Smart payment nudges
+
+When **Smart Reminders** is enabled (in **Settings → Notifications**), pre-due payment reminders are automatically skipped for clients who have a strong on-time payment history. The threshold defaults to 80% on-time payments. Clients who meet this threshold receive a "reliable payer" designation and are not sent reminder emails before their due date — only post-due notices if they are late.
+
+This applies to both the standard `paymentReminderDays` reminders and custom reminder sequences. See [Background jobs](/integrations/background-jobs) for how reminders are scheduled.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Background jobs" icon="clock" href="/integrations/background-jobs">
+    How payment reminders, overdue detection, and late fees run on schedule.
+  </Card>
+  <Card title="Email delivery" icon="envelope" href="/integrations/email">
+    Payment receipt emails and automation triggers.
+  </Card>
+  <Card title="Client portal" icon="users" href="/features/client-portal">
+    Where clients view invoices and submit payments.
+  </Card>
+  <Card title="Environment variables" icon="key" href="/configuration/environment-variables">
+    Full reference for all required and optional env vars.
+  </Card>
+</CardGroup>

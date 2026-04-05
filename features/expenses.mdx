@@ -1,0 +1,156 @@
+---
+title: "Expenses"
+description: "Log, categorize, and track business expenses with receipt scanning, recurring schedules, and direct billing to client invoices."
+---
+
+<CardGroup cols={2}>
+  <Card title="Categorized expense tracking" icon="tags">
+    Organize expenses with custom categories and suppliers defined per organization.
+  </Card>
+  <Card title="Receipt uploads" icon="receipt">
+    Attach receipt files to any expense via Supabase Storage for a complete paper trail.
+  </Card>
+  <Card title="AI-powered OCR" icon="wand-magic-sparkles">
+    Scan a receipt image and have key fields extracted automatically, with a confidence score.
+  </Card>
+  <Card title="Bill to clients" icon="file-invoice-dollar">
+    Mark expenses as reimbursable and add them to an invoice as `EXPENSE` line items in one step.
+  </Card>
+  <Card title="Recurring expenses" icon="rotate">
+    Automate regularly occurring costs like subscriptions and retainers on daily, weekly, monthly, or yearly schedules.
+  </Card>
+  <Card title="Project-linked expenses" icon="folder">
+    Associate expenses with a project for accurate project cost reporting.
+  </Card>
+</CardGroup>
+
+## Logging an expense
+
+<Steps>
+  <Step title="Open the expense form">
+    Go to **Expenses** in the sidebar and click **New expense**.
+  </Step>
+  <Step title="Enter the details">
+    Fill in the expense name, an optional description, quantity, and rate (unit cost). The total is calculated as `qty × rate`.
+  </Step>
+  <Step title="Set dates">
+    Add an optional **due date** (when payment is due to the supplier) and a **paid at** date to record when the expense was actually paid.
+  </Step>
+  <Step title="Categorize and assign a supplier">
+    Select a category and supplier from your organization's configured lists. Both are optional but improve reporting accuracy.
+  </Step>
+  <Step title="Link to a project">
+    If the expense was incurred for a specific project, select that project. It will appear in the project's expense summary.
+  </Step>
+  <Step title="Apply a tax">
+    Choose an applicable tax rate if the expense includes recoverable or reportable tax.
+  </Step>
+  <Step title="Mark as reimbursable">
+    Toggle **Reimbursable** if this expense should be billed back to a client. Reimbursable expenses can later be added to an invoice.
+  </Step>
+  <Step title="Upload a receipt">
+    Attach a receipt file. Supported formats include images and PDFs. Files are stored in Supabase Storage under the `expenses` bucket.
+  </Step>
+</Steps>
+
+## AI-powered receipt scanning
+
+When you upload a receipt image, you can use the **Scan receipt** feature to extract expense data automatically using AI-powered OCR.
+
+- The extracted data is stored in `ocrRawResult` (the full raw JSON from the AI response).
+- A confidence score between 0 and 1 is stored in `ocrConfidence` to indicate how reliable the extraction was.
+- You can review and correct the pre-filled fields before saving.
+
+<Tip>
+Receipt scanning requires the `ANTHROPIC_API_KEY` environment variable to be configured. See the [environment variables reference](/configuration/environment-variables) for setup instructions.
+</Tip>
+
+## Categories and suppliers
+
+Keep your expense list organized with custom categories and suppliers:
+
+<Tabs>
+  <Tab title="Categories">
+    Create expense categories under **Settings → Expense categories**. Examples: Software, Travel, Office supplies, Subcontractors. Categories appear in expense reports and the expense breakdown view.
+  </Tab>
+  <Tab title="Suppliers">
+    Create suppliers under **Settings → Expense suppliers**. Tagging a supplier on each expense lets you see spending by vendor in reports and makes it easy to filter during bulk operations.
+  </Tab>
+</Tabs>
+
+You can bulk-assign a category to multiple expenses at once from the expense list using the **Categorize** bulk action.
+
+## Tax tracking
+
+Expenses support a single tax rate attachment. This allows you to:
+
+- Track input tax for VAT/GST reporting
+- Include the tax amount in the Tax Liability report
+- Carry the tax through when billing the expense to an invoice
+
+Tax rates are shared with invoice taxes and configured under **Settings → Taxes**.
+
+## Billing expenses to an invoice
+
+Reimbursable expenses can be added to a client invoice as pass-through charges:
+
+<Steps>
+  <Step title="Open the invoice">
+    Navigate to the invoice you want to add expenses to. The invoice must be in `DRAFT` or `SENT` status.
+  </Step>
+  <Step title="Add from expenses">
+    Click **Add from expenses** and select the unbilled, reimbursable expenses to include.
+  </Step>
+  <Step title="Confirm">
+    Each expense is added as an `EXPENSE` line item on the invoice, with the expense name, quantity, rate, and associated tax carried over. The invoice totals are recalculated automatically.
+  </Step>
+</Steps>
+
+Once an expense is added to an invoice it is marked as billed and cannot be added to another invoice or deleted.
+
+## Payment tracking
+
+Track the payment status of each expense independently from invoicing:
+
+- **Due date** — when payment to the supplier is due
+- **Paid at** — the date you actually paid it; leave blank for unpaid expenses
+- **Payment details** — an optional free-text note for reference (e.g., transaction ID or payment method)
+
+Filter the expense list by paid/unpaid status to see what is still outstanding.
+
+## Recurring expenses
+
+Automate regularly occurring costs with recurring expense schedules. Each recurring expense generates new expense records on a configurable schedule via background jobs.
+
+<AccordionGroup>
+  <Accordion title="Creating a recurring schedule">
+    Go to **Expenses → Recurring** and click **New recurring expense**. Configure:
+
+    - **Frequency** — `DAILY`, `WEEKLY`, `MONTHLY`, or `YEARLY`
+    - **Interval** — how many frequency units between occurrences (e.g., interval `2` with frequency `MONTHLY` = every 2 months)
+    - **Start date** — when the first expense is generated
+    - **End date** — optional date after which no more expenses are generated
+    - **Max occurrences** — optional cap on the total number of generated expenses
+
+    All other fields (name, rate, category, supplier, tax, project, reimbursable flag) are inherited by each generated expense.
+  </Accordion>
+  <Accordion title="How generation works">
+    A background job powered by Inngest runs on a schedule and checks for recurring expenses where `nextRunAt` is in the past and the schedule is still active. For each due schedule it creates a new expense and advances `nextRunAt` to the next occurrence.
+
+    Generation can also be triggered manually from the Expenses page using the **Generate recurring** action.
+  </Accordion>
+  <Accordion title="Pausing or stopping a schedule">
+    Set the recurring expense to inactive to stop future generation without deleting the schedule or its history. Previously generated expenses are unaffected.
+  </Accordion>
+</AccordionGroup>
+
+## Receipt file storage
+
+Receipt files are stored in the `expenses` bucket in Supabase Storage. Each attachment record contains:
+
+- Original filename
+- MIME type and file size
+- Storage URL for retrieval
+- Upload timestamp
+
+File storage requires the `expenses` bucket to exist in your Supabase project with appropriate RLS policies. See the [self-hosting guide](/self-hosting) for bucket setup instructions.

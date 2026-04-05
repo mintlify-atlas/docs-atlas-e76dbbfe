@@ -1,0 +1,218 @@
+---
+title: 'Architecture overview'
+description: 'A technical map of LWD Invoices — how the layers fit together and why key decisions were made.'
+keywords: ['architecture', 'tRPC', 'Next.js', 'Prisma', 'Supabase', 'Inngest', 'multi-tenancy']
+---
+
+This page explains the system architecture of LWD Invoices for contributors who want to understand how the codebase is structured before making changes.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Auth | Supabase Auth (multi-tenant orgs) |
+| API | tRPC v11 |
+| Database | PostgreSQL + Prisma 7 |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Email | Resend + React Email |
+| PDF | @react-pdf/renderer |
+| Payments | Stripe, PayPal |
+| Background jobs | Inngest |
+| File storage | Supabase Storage |
+| Validation | Zod 4 |
+| Testing | Vitest |
+| Deployment | Netlify |
+
+## Directory structure
+
+```text
+src/
+├── app/
+│   ├── (auth)/          # Sign-in / sign-up pages
+│   ├── (dashboard)/     # Main app UI (invoices, clients, projects, etc.)
+│   ├── api/
+│   │   ├── inngest/     # Inngest background job handler
+│   │   ├── invoices/    # PDF generation endpoint
+│   │   ├── portal/      # Token-based client portal API
+│   │   ├── trpc/        # tRPC HTTP handler
+│   │   ├── v1/          # REST API v1 (clients, invoices, projects)
+│   │   └── webhooks/    # Supabase, Stripe, and PayPal webhooks
+│   ├── onboarding/      # New org setup flow
+│   └── portal/          # Public client portal pages
+├── server/
+│   ├── routers/         # tRPC routers (one per domain)
+│   ├── services/        # Business logic and PDF generation
+│   └── trpc.ts          # tRPC context and procedure builders
+├── components/          # Shared UI components
+├── emails/              # React Email templates
+├── inngest/             # Background job function definitions
+└── lib/                 # Utilities, env validation, auth helpers
+prisma/
+├── schema.prisma        # Database schema
+└── migrations/          # Migration history
+```
+
+## Key architecture decisions
+
+<CardGroup cols={2}>
+  <Card title="Multi-tenancy at the procedure layer" icon="shield-check">
+    Every tRPC procedure extracts `organizationId` from the Supabase auth context and scopes all database queries by it. There is no global middleware bypass — isolation is enforced per-call in `src/server/trpc.ts`.
+  </Card>
+  <Card title="Two separate API layers" icon="layers">
+    tRPC handles all internal dashboard calls. The REST API at `/api/v1/` is a separate, independently authenticated surface for external integrations — the two layers share no auth mechanism.
+  </Card>
+  <Card title="Token-based client portal" icon="link">
+    The client portal at `/portal/` uses a `portalToken` stored on the `Client` record. No Supabase account is required — clients can view and pay invoices via a shareable link without creating a login.
+  </Card>
+  <Card title="Encrypted payment credentials" icon="lock">
+    Stripe keys and PayPal secrets are encrypted at rest per-organization using AES-256-GCM. The encryption key is set via `GATEWAY_ENCRYPTION_KEY`. Raw credentials are never stored in plaintext.
+  </Card>
+  <Card title="Background jobs via Inngest" icon="clock">
+    All async processing — recurring billing, payment reminders, overdue detection, late fees, scheduled reports — runs through Inngest. Develop locally with `npx inngest-cli@latest dev`, which connects to `/api/inngest`.
+  </Card>
+  <Card title="Server-side PDF generation" icon="file-text">
+    PDFs are rendered server-side using `@react-pdf/renderer` in the `/api/invoices/[id].pdf` route handler. There is no client-side PDF generation.
+  </Card>
+</CardGroup>
+
+## Multi-tenancy in detail
+
+Multi-tenancy is enforced at the tRPC procedure layer, not at the database level (no row-level security in PostgreSQL). When a user authenticates, Supabase stores their `organizationId` in `app_metadata`. The tRPC context reads this value and every protected procedure passes it into every Prisma query:
+
+```typescript
+// Every DB query is scoped to the authenticated organization
+const invoices = await prisma.invoice.findMany({
+  where: { organizationId: ctx.organizationId },
+});
+```
+
+If you add a new tRPC procedure, you **must** scope all queries by `organizationId`. Forgetting this is the most common class of multi-tenancy bug.
+
+## API layers
+
+### tRPC (internal)
+
+The tRPC router is mounted at `/api/trpc/[trpc]`. All dashboard pages call procedures through the tRPC client in `src/trpc/`. Authentication uses Supabase session cookies.
+
+### REST API v1 (external)
+
+The REST API is mounted at `/api/v1/` and covers clients, invoices, and projects. It uses Bearer token authentication separate from Supabase. See the [API reference](/api-reference/overview) for the full endpoint list.
+
+### Client portal API
+
+Portal endpoints live at `/api/portal/` and authenticate using the `portalToken` query parameter. These endpoints are intentionally unauthenticated from Supabase's perspective — access is controlled solely by the token.
+
+### Webhooks
+
+Incoming webhooks from Supabase, Stripe, and PayPal are handled at `/api/webhooks/`. Each handler validates the request signature before processing. Stripe webhook processing uses idempotency keys to prevent double-processing.
+
+## tRPC routers
+
+Each domain has its own router file in `src/server/routers/`. They are combined in `src/server/routers/_app.ts`.
+
+| Router | Domain |
+|---|---|
+| `attachments` | File attachments (invoices, expenses, proposals, tickets) |
+| `auditLog` | Organization-scoped activity log |
+| `clients` | Client management |
+| `comments` | Invoice comments |
+| `creditNotes` | Credit note issuance and application |
+| `currencies` | Multi-currency configuration |
+| `dashboard` | Dashboard summary data |
+| `discussions` | Project discussion threads |
+| `emailAutomations` | Trigger-based email automation rules |
+| `expenseCategories` | Expense category management |
+| `expenses` | Expense tracking |
+| `expenseSuppliers` | Expense supplier management |
+| `gatewaySettings` | Payment gateway configuration (encrypted) |
+| `invoices` | Invoice CRUD, sending, status management |
+| `items` | Saved line item library |
+| `lateFees` | Late fee configuration and waiver |
+| `milestones` | Project milestones |
+| `notifications` | In-app notifications |
+| `organization` | Organization settings and branding |
+| `partialPayments` | Partial payment schedules |
+| `portal` | Client portal data access |
+| `projects` | Project management |
+| `projectTemplates` | Reusable project templates |
+| `proposals` | Proposal content and e-signatures |
+| `recurringExpenses` | Recurring expense schedules |
+| `recurringInvoices` | Recurring invoice schedules |
+| `reminderSequences` | Customizable payment reminder sequences |
+| `reports` | Revenue, aging, unpaid, and tax reports |
+| `retainers` | Client retainer / deposit balances |
+| `scheduledReports` | Automated scheduled report delivery |
+| `search` | Global search across entities |
+| `tasks` | Project tasks |
+| `taskStatuses` | Custom task status columns |
+| `taxes` | Tax rate configuration |
+| `team` | Team member and invitation management |
+| `tickets` | Internal support ticket system |
+| `timeEntries` | Time entry logging |
+| `timers` | Active task timers |
+| `timesheets` | Timesheet views |
+
+## Inngest background functions
+
+Background functions are defined in `src/inngest/functions/` and registered at `/api/inngest`.
+
+| Function file | What it does |
+|---|---|
+| `recurring-invoices.ts` | Generates new invoices from active recurring invoice schedules |
+| `recurring-expenses.ts` | Generates new expenses from active recurring expense schedules |
+| `payment-reminders.ts` | Sends payment reminder emails based on org reminder settings |
+| `overdue-invoices.ts` | Marks sent invoices as overdue past their due date |
+| `late-fees.ts` | Applies late fee entries to overdue invoices per org configuration |
+| `email-automations.ts` | Processes trigger-based email automation rules |
+| `email-automation-events.ts` | Fires automation events on invoice lifecycle changes |
+| `reminder-sequences.ts` | Executes custom multi-step reminder sequences |
+| `scheduled-reports.ts` | Delivers scheduled reports to configured recipients |
+| `cleanup-pending-users.ts` | Removes expired pending user invitations |
+
+To develop background jobs locally, run the Inngest dev server alongside `npm run dev`:
+
+```bash
+npx inngest-cli@latest dev
+```
+
+The dev server connects to `http://localhost:3000/api/inngest` and lets you trigger functions manually from its UI.
+
+## File storage
+
+Supabase Storage is used for all file attachments, organized into four buckets:
+
+| Bucket | Contents |
+|---|---|
+| `invoices` | Invoice file attachments |
+| `expenses` | Expense receipts |
+| `logos` | Organization logo uploads |
+| `proposals` | Proposal file uploads |
+
+Each bucket should have RLS policies that restrict access to the owning organization. Storage paths include the `organizationId` as a prefix to enforce isolation at the path level in addition to RLS.
+
+## Database schema highlights
+
+The Prisma schema at `prisma/schema.prisma` defines the full data model. Key relationships for contributors:
+
+- Every record that belongs to an organization has an `organizationId` foreign key referencing `Organization.id` with `onDelete: Cascade`.
+- `Invoice` is the central model — it covers invoices, estimates, and credit notes distinguished by the `type` enum (`SIMPLE`, `DETAILED`, `ESTIMATE`, `CREDIT_NOTE`).
+- `Client.portalToken` is the stable, unique token used for client portal access. `Invoice.portalToken` scopes access to a single invoice within the portal.
+- `GatewaySetting.configJson` stores gateway credentials as an AES-256-GCM encrypted JSON blob — never decrypt this outside of the gateway service layer.
+- Cached financial totals (`subtotal`, `taxTotal`, `total`) are stored on `Invoice` and `InvoiceLine` and recomputed on every save. Do not read these fields from a stale snapshot.
+
+## Adding a new feature
+
+A typical full-stack feature involves these files:
+
+1. **`prisma/schema.prisma`** — Add or modify models, then run `npx prisma migrate dev --name your-feature`.
+2. **`src/server/routers/your-domain.ts`** — Add tRPC procedures with Zod input validation and `organizationId` scoping.
+3. **`src/server/routers/_app.ts`** — Register the new router if it's a new domain.
+4. **`src/app/(dashboard)/your-page/`** — Add the Next.js App Router page and components.
+5. **`src/inngest/functions/`** — Add a background function if the feature requires async processing.
+6. **`src/__tests__/`** — Add unit or integration tests.
+
+<Tip>
+Search for an existing router that is similar to what you're building (e.g., `expenses.ts` for a resource with CRUD + file attachments) and use it as a structural reference before starting from scratch.
+</Tip>
